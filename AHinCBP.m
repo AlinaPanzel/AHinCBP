@@ -44,15 +44,9 @@ lo = load_MVPA(lo);
 
 %% Plots & Visualizations
 
-% Get Baseline Figures
-
-% Get longitudinal figure
-
-
 % -------- Baseline Analysis ----------
 
-update = struct;
-update1 = update; 
+
 
 % ------- Longitudinal Analysis -------
 
