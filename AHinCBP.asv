@@ -1,0 +1,86 @@
+% Auditory Hypersensitivity in Chronic Back Pain: A Randomized Controlled Trial of Pain Reprocessing Therapy
+
+
+% Author: Alina Panzel
+% Last Date of Changes: 11.09.2025
+
+%% Load Data & Atlases
+
+% clean 
+clc;
+clear;
+
+% addpath
+addpath(genpath('/Users/alinapanzel/Desktop/Dartmouth_project'))
+datadir = '/Users/alinapanzel/Desktop/Dartmouth_project/acute_contrast_maps/work/ics/data/projects/wagerlab/labdata/projects/OLP4CBP/first_level';
+
+% set structs
+d = struct; % for directories/ data
+lo = struct; % for fmriobjects
+a = struct; % for atlases
+
+% Get metadata table
+d = get_metadata(d);
+
+% Load in behvaioral & fmri data
+[d, lo] = load_data_objects(d, datadir, lo);
+
+% Load atlases
+a = load_MSS_atlases(a);
+
+
+%% Behavioral Analysis
+
+% -------- Baseline Analysis ----------
+
+% Build baseline table in long-format table with centered age
+data_baseline = get_baseline_table(d,lo);
+
+% AUDIO (Sound) LMM
+AA = data_baseline(data_baseline.Modality=="Sound", :);
+lme_AA = fitlme(AA, 'Rating ~ cAge + nGender + Intensity*Group + (1|ID)', ...
+                'FitMethod','REML');
+
+[pval,F,DF1,DF2] = coefTest(lme_AA,[0 1 0 0 0 0],[0],'DFMethod','Satterthwaite')
+[pval,F,DF1,DF2] = coefTest(lme_AA,[0 0 0 1 0 0],[0],'DFMethod','Satterthwaite')
+
+% PRESSURE (Thumb) LMM
+PP = data_baseline(data_baseline.Modality=="Pressure", :);
+lme_PP = fitlme(PP, 'Rating ~ cAge + nGender + Intensity*Group + (1|ID)', ...
+                'FitMethod','REML');
+
+% Example contrasts (Satterthwaite)
+[pval,F,DF1,DF2] = coefTest(lme_AA, [0 0 0 0 1 0], 0, 'DFMethod','Satterthwaite'); %#ok<NASGU>
+
+
+
+% Run linear mixed models
+
+% ------- Longitudinal Analysis -------
+
+
+
+%% Neural Analysis
+
+% Load in ROI and MVPA values
+lo = load_ROI(a, lo);
+lo = load_MVPA(lo);
+
+% Get data tables in long format 
+data_long = get_longitudinal_table(d,lo);
+
+
+
+
+%% Plots & Visualizations
+
+% -------- Baseline Analysis ----------
+
+
+
+% ------- Longitudinal Analysis -------
+
+
+
+
+

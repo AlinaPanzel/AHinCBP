@@ -1,4 +1,4 @@
-% Auditory Hypersensitivity in Chronic Back Pain: A Randomized Controlled Trial of Pain Reprocessing Therapy
+%% Auditory Hypersensitivity in Chronic Back Pain: A Randomized Controlled Trial of Pain Reprocessing Therapy
 
 
 % Author: Alina Panzel
@@ -28,9 +28,57 @@ d = get_metadata(d);
 % Load atlases
 a = load_MSS_atlases(a);
 
+
 %% Behavioral Analysis
 
-% Baseline analysis 
+% -------- Baseline Analysis ----------
+
+% Build baseline table in long format (already has centered age and clean vars)
+data_baseline = get_baseline_table(d, lo);
+
+% --- AUDIO (Sound) Ratings ---
+% Subset only sound trials (Low/High)
+AA = data_baseline(data_baseline.Modality=="Sound", :);
+
+% Linear mixed model:
+%   Rating ~ Age (centered) + Gender + Intensity (Low/High) * Group (CBP vs Healthy)
+%   Random intercept for subject ID
+lme_AA = fitlme(AA, ...
+    'Rating ~ cAge + nGender + Intensity*Group + (1|ID)', ...
+    'FitMethod','REML');
+
+disp('--- Sound model ---');
+disp(lme_AA);
+
+% Contrast 1: Group main effect (CBP vs Healthy)
+[pval,F,DF1,DF2] = coefTest(lme_AA, [0 1 0 0 0 0], 0, 'DFMethod','Satterthwaite');
+fprintf('Sound: Group effect p=%.4f, F=%.2f (df1=%d, df2=%.2f)\n', pval,F,DF1,DF2);
+
+% Contrast 2: Intensity*Group interaction
+[pval,F,DF1,DF2] = coefTest(lme_AA, [0 0 0 1 0 0], 0, 'DFMethod','Satterthwaite');
+fprintf('Sound: Intensity*Group interaction p=%.4f, F=%.2f (df1=%d, df2=%.2f)\n', pval,F,DF1,DF2);
+
+
+% --- PRESSURE (Thumb) Ratings ---
+% Subset only pressure (thumb) trials (Low/High)
+PP = data_baseline(data_baseline.Modality=="Pressure", :);
+
+% Linear mixed model
+lme_PP = fitlme(PP, ...
+    'Rating ~ cAge + nGender + Intensity*Group + (1|ID)', ...
+    'FitMethod','REML');
+
+disp('--- Pressure model ---');
+disp(lme_PP);
+
+% Contrast 1: Group main effect (CBP vs Healthy)
+[pval,F,DF1,DF2] = coefTest(lme_PP, [0 1 0 0 0 0], 0, 'DFMethod','Satterthwaite');
+fprintf('Pressure: Group effect p=%.4f, F=%.2f (df1=%d, df2=%.2f)\n', pval,F,DF1,DF2);
+
+% Contrast 2: Intensity main effect (High vs Low)
+[pval,F,DF1,DF2] = coefTest(lme_PP, [0 0 1 0 0 0], 0, 'DFMethod','Satterthwaite');
+fprintf('Pressure: Intensity effect p=%.4f, F=%.2f (df1=%d, df2=%.2f)\n', pval,F,DF1,DF2);
+
 
 
 %% Neural Analysis
@@ -39,9 +87,11 @@ a = load_MSS_atlases(a);
 lo = load_ROI(a, lo);
 lo = load_MVPA(lo);
 
+% Get data tables in long format 
+data_long = get_longitudinal_table(d,lo);
 
-% Test 
-test = test
+
+
 
 %% Plots & Visualizations
 
@@ -50,9 +100,6 @@ test = test
 
 
 % ------- Longitudinal Analysis -------
-
-% Get data tables in long format 
-con_table_long = get_longformat_table(d,lo, pat_tabl, prexps);
 
 
 
