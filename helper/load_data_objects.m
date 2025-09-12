@@ -26,7 +26,7 @@ fprintf('Found %d patient IDs with S1 and %d with S2; %d HC at S1\n', ...
 all_subs = unique([subs; subs2]);
 fprintf('Total unique patient subjects across both sessions: %d\n', numel(all_subs));
 
-% Groups from metadata
+% Groups from metadata (patients 1/2/3)
 G1 = d.metadata.id(d.metadata.group == 1);
 G2 = d.metadata.id(d.metadata.group == 2);
 G3 = d.metadata.id(d.metadata.group == 3);
@@ -48,10 +48,9 @@ fprintf('Group 2: S1 %d, S2 %d\n', numel(l.ID.G2_S1), numel(l.ID.G2_S2));
 fprintf('Group 3: S1 %d, S2 %d\n', numel(l.ID.G3_S1), numel(l.ID.G3_S2));
 fprintf('HC (baseline S1): %d\n', numel(l.ID.HC_S1));
 
-
 %% ---------- Build file lists ----------
 
-% Session 1 (patients) — THUMB low/high
+% Session 1 (patients) — THUMB low/high + SOUND low/high
 Treatment_S1 = {'G1_S1','G2_S1','G3_S1'};
 for j = 1:numel(Treatment_S1)
     for i = 1:numel(l.ID.(Treatment_S1{j}))
@@ -64,7 +63,7 @@ for j = 1:numel(Treatment_S1)
     end
 end
 
-% Session 1 (HC) — THUMB low/high
+% Session 1 (HC) — THUMB low/high + SOUND low/high
 for i = 1:numel(l.ID.HC_S1)
     n = l.ID.HC_S1(i);
     str = "sub-" + sprintf('%04d', n);
@@ -74,7 +73,7 @@ for i = 1:numel(l.ID.HC_S1)
     l.HC_S1.S1.all_s_h(i,:) = filenames(fullfile(datadir, str, 'ses-01', 'acute_v2', 'con_0004.nii'));
 end
 
-% Session 2 (patients) — THUMB low/high
+% Session 2 (patients) — THUMB low/high + SOUND low/high
 Treatment_S2 = {'G1_S2','G2_S2','G3_S2'};
 for j = 1:numel(Treatment_S2)
     for i = 1:numel(l.ID.(Treatment_S2{j}))
@@ -86,7 +85,6 @@ for j = 1:numel(Treatment_S2)
         l.(Treatment_S2{j}).S2.all_s_h(i,:) = filenames(fullfile(datadir, str, 'ses-02', 'acute_v2', 'con_0004.nii'));
     end
 end
-
 
 %% ---------- Load fmri_data objects ----------
 
@@ -132,9 +130,7 @@ for n = 1:numel(TreatmentsPatients)
     end
 end
 
-
-%% ---------- Masks & metadata filtering (now based on THUMB) ----------
-
+%% ---------- Masks & metadata filtering (based on SOUND presence) ----------
 is_nonempty = @(x) ~(isempty(x) || (isstring(x) && x=="") || (iscell(x) && (isempty(x{1}) || strcmp(x{1},""))));
 
 % Session 1 masks (patients)
@@ -164,31 +160,42 @@ validIDs.G1.S12 = intersect(validIDs.G1.S1, validIDs.G1.S2);
 validIDs.G2.S12 = intersect(validIDs.G2.S1, validIDs.G2.S2);
 validIDs.G3.S12 = intersect(validIDs.G3.S1, validIDs.G3.S2);
 
-% Filter behavioral metadata per session
-d.G1.S1 = d.metadata(d.metadata.group==1 & d.metadata.time==1 & ismember(d.metadata.id, validIDs.G1.S1), :);
-d.G2.S1 = d.metadata(d.metadata.group==2 & d.metadata.time==1 & ismember(d.metadata.id, validIDs.G2.S1), :);
-d.G3.S1 = d.metadata(d.metadata.group==3 & d.metadata.time==1 & ismember(d.metadata.id, validIDs.G3.S1), :);
-d.HC.S1 = d.metadata(d.metadata.group=='NAN' & d.metadata.time==1 & ismember(d.metadata.id, validIDs.HC.S1), :); % adjust group code if HC is different
+%% ---------- METADATA SLICES (FIXED HC HANDLING) ----------
+meta = d.metadata;
 
-d.G1.S2 = d.metadata(d.metadata.group==1 & d.metadata.time==2 & ismember(d.metadata.id, validIDs.G1.S2), :);
-d.G2.S2 = d.metadata(d.metadata.group==2 & d.metadata.time==2 & ismember(d.metadata.id, validIDs.G2.S2), :);
-d.G3.S2 = d.metadata(d.metadata.group==3 & d.metadata.time==2 & ismember(d.metadata.id, validIDs.G3.S2), :);
+% Robust HC detection:
+% * numeric group: HC coded as NaN -> use isnan
+% * categorical/char fallback: treat missing/undefined/"NaN" as HC
+if isnumeric(meta.group)
+    isHC = isnan(meta.group);
+elseif iscategorical(meta.group)
+    isHC = isundefined(meta.group) | (string(meta.group)=="NaN");
+else
+    gstr = string(meta.group);
+    isHC = (gstr=="NaN") | (gstr=="") | (gstr=="<undefined>");
+end
 
-% Strict completers (patients)
-d.G1.S12 = d.metadata(d.metadata.group==1 & ismember(d.metadata.id, validIDs.G1.S12), :);
-d.G2.S12 = d.metadata(d.metadata.group==2 & ismember(d.metadata.id, validIDs.G2.S12), :);
-d.G3.S12 = d.metadata(d.metadata.group==3 & ismember(d.metadata.id, validIDs.G3.S12), :);
+% Patients by group code (1/2/3) at each session, filtered by valid IDs
+d.G1.S1 = meta(meta.group==1 & meta.time==1 & ismember(meta.id, validIDs.G1.S1), :);
+d.G2.S1 = meta(meta.group==2 & meta.time==1 & ismember(meta.id, validIDs.G2.S1), :);
+d.G3.S1 = meta(meta.group==3 & meta.time==1 & ismember(meta.id, validIDs.G3.S1), :);
 
-fprintf('\nBehavior kept where brain files exist (thumb low+high required):\n');
-fprintf('G1: S1 %d, S2 %d, S12 %d\n', height(d.G1.S1), height(d.G1.S2), height(d.G1.S12));
-fprintf('G2: S1 %d, S2 %d, S12 %d\n', height(d.G2.S1), height(d.G2.S2), height(d.G2.S12));
-fprintf('G3: S1 %d, S2 %d, S12 %d\n', height(d.G3.S1), height(d.G3.S2), height(d.G3.S12));
+d.G1.S2 = meta(meta.group==1 & meta.time==2 & ismember(meta.id, validIDs.G1.S2), :);
+d.G2.S2 = meta(meta.group==2 & meta.time==2 & ismember(meta.id, validIDs.G2.S2), :);
+d.G3.S2 = meta(meta.group==3 & meta.time==2 & ismember(meta.id, validIDs.G3.S2), :);
+
+% Healthies (group coded as NaN/missing), baseline only, filtered by valid HC IDs
+d.HC.S1 = meta(isHC & meta.time==1 & ismember(meta.id, validIDs.HC.S1), :);
+
+% Debug prints
+fprintf('\nBehavior kept where brain files exist (sound low+high required):\n');
+fprintf('G1: S1 %d, S2 %d, S12 %d\n', height(d.G1.S1), height(d.G1.S2), numel(validIDs.G1.S12));
+fprintf('G2: S1 %d, S2 %d, S12 %d\n', height(d.G2.S1), height(d.G2.S2), numel(validIDs.G2.S12));
+fprintf('G3: S1 %d, S2 %d, S12 %d\n', height(d.G3.S1), height(d.G3.S2), numel(validIDs.G3.S12));
 fprintf('HC: S1 %d\n', height(d.HC.S1));
-fprintf('Data loading complete (THUMB conditions).\n');
-
+fprintf('Data loading complete (SOUND/THUMB lists built; SOUND masks used).\n');
 
 %% ---------- Completers fMRI (patients only) ----------
-
 lo.G1.S1.completers_s_l = fmri_data(l.G1_S1.S1.all_s_l(ismember(l.ID.G1_S1, validIDs.G1.S12)));
 lo.G1.S1.completers_s_h = fmri_data(l.G1_S1.S1.all_s_h(ismember(l.ID.G1_S1, validIDs.G1.S12)));
 lo.G1.S2.completers_s_l = fmri_data(l.G1_S2.S2.all_s_l(ismember(l.ID.G1_S2, validIDs.G1.S12)));
@@ -204,6 +211,4 @@ lo.G3.S1.completers_s_h = fmri_data(l.G3_S1.S1.all_s_h(ismember(l.ID.G3_S1, vali
 lo.G3.S2.completers_s_l = fmri_data(l.G3_S2.S2.all_s_l(ismember(l.ID.G3_S2, validIDs.G3.S12)));
 lo.G3.S2.completers_s_h = fmri_data(l.G3_S2.S2.all_s_h(ismember(l.ID.G3_S2, validIDs.G3.S12)));
 
-
-
-end 
+end

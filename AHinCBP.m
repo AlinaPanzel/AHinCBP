@@ -34,11 +34,11 @@ a = load_MSS_atlases(a);
 % -------- Baseline Analysis ----------
 
 % Build baseline table in long format (already has centered age and clean vars)
-data_baseline = get_baseline_table(d, lo);
+behavioral_baseline = get_baseline_table(d, lo);
 
 % --- AUDIO (Sound) Ratings ---
 % Subset only sound trials (Low/High)
-AA = data_baseline(data_baseline.Modality=="Sound", :);
+AA = behavioral_baseline(behavioral_baseline.Modality=="Sound", :);
 
 % Linear mixed model:
 %   Rating ~ Age (centered) + Gender + Intensity (Low/High) * Group (CBP vs Healthy)
@@ -61,7 +61,7 @@ fprintf('Sound: Intensity*Group interaction p=%.4f, F=%.2f (df1=%d, df2=%.2f)\n'
 
 % --- PRESSURE (Thumb) Ratings ---
 % Subset only pressure (thumb) trials (Low/High)
-PP = data_baseline(data_baseline.Modality=="Pressure", :);
+PP = behavioral_baseline(behavioral_baseline.Modality=="Pressure", :);
 
 % Linear mixed model
 lme_PP = fitlme(PP, ...
@@ -86,9 +86,15 @@ fprintf('Pressure: Intensity effect p=%.4f, F=%.2f (df1=%d, df2=%.2f)\n', pval,F
 % Load in ROI and MVPA values
 lo = load_ROI(a, lo);
 lo = load_MVPA(lo);
+neural_baseline = get_neural_baseline_table(d, lo);
+neural_longitudinal = get_longitudinal_table(d,lo);
 
-% Get data tables in long format 
-data_long = get_longitudinal_table(d,lo);
+
+% ------- Baseline Analysis -------
+
+
+
+% ------- Longitudinal Analysis -------
 
 
 
