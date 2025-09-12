@@ -2,7 +2,7 @@
 
 
 % Author: Alina Panzel
-% Last Date of Changes: 11.09.2025
+% Last Date of Changes: 12.09.2025
 
 %% Load Data & Atlases
 
@@ -92,10 +92,89 @@ neural_longitudinal = get_longitudinal_table(d,lo);
 
 % ------- Baseline Analysis -------
 
+plot_auditory_treatmenteffects_collapsed(d)
 
 
 % ------- Longitudinal Analysis -------
 
+% Fit & test treatment effects with LMM (random slopes & intercepts)
+
+% Set up & clearn
+T = neural_longitudinal;                             % columns: subID,timepoint,group,intensity,measure,value
+T.value     = double(T.value);
+T.subID     = categorical(T.subID);
+T.group     = categorical(T.group);
+T.timepoint = categorical(T.timepoint);
+T.intensity = categorical(T.intensity);
+T.measure   = categorical(T.measure);
+
+measures = categories(T.measure);
+
+results = table(strings(0,1), zeros(0,1), nan(0,1), nan(0,1), nan(0,1), nan(0,1), ...
+    'VariableNames', {'measure','NumObs','F','df1','df2','p'});
+models  = struct('measure',{},'lme',{});
+
+for k = 1:numel(measures)
+    m  = measures{k};
+    Tk = T(T.measure == m, :);
+    
+    % Make sure predictors are categorical/numeric as needed
+    Tk.group     = categorical(Tk.group);
+    Tk.timepoint = double(Tk.timepoint);   % 1=baseline, 2=post
+    Tk.intensity = double(Tk.intensity);   % 1=low, 2=high
+    
+    % Random intercept + random slope for timepoint
+    lme = fitlme(Tk, 'value ~ group*timepoint + intensity + (1 + timepoint | subID)');
+    
+    % Joint test of group × timepoint
+    cn = string(lme.CoefficientNames);
+    J  = find(contains(cn,"group") & contains(cn,"timepoint"));
+    
+    if ~isempty(J)
+        L = zeros(numel(J), numel(cn));
+        for i=1:numel(J), L(i,J(i)) = 1; end
+        [p,F,df1,df2] = coefTest(lme, L);
+    else
+        F=NaN; df1=NaN; df2=NaN; p=NaN;
+    end
+
+    results = [results; {string(m), height(Tk), F, df1, df2, p}];
+    models(end+1).measure = string(m); %#ok<SAGROW>
+    models(end).lme = lme;
+end
+
+% FDR (Benjamini–Hochberg)
+p = results.p; keep = ~isnan(p); q = nan(size(p));
+if any(keep), [~,~,~,q(keep)] = fdr_bh(p(keep)); end
+results.q_BH = q;
+
+% nice printing table
+Rprint = sortrows(results, 'p');
+Rprint.F   = round(Rprint.F,3);
+Rprint.df1 = round(Rprint.df1,2);
+Rprint.df2 = round(Rprint.df2,2);
+Rprint.p   = round(Rprint.p,4);
+Rprint.q_BH= round(Rprint.q_BH,4);
+
+disp('=== Group × Time interaction (per measure) ===');
+disp(Rprint);
+
+
+% FOR YONI TO CHECK
+
+Tk = T(T.measure == 'mPFC', :);
+lme = fitlme(Tk, 'value ~ group*timepoint + intensity + (1 + timepoint | subID)');
+lme
+
+Tk = T(T.measure == 'precuneus', :);
+lme = fitlme(Tk, 'value ~ group*timepoint + intensity + (1 + timepoint | subID)');
+lme
+
+% Not fully functional yet
+%visualize_lme_interaction(T, 'mPFC');
+%visualize_lme_interaction(T, 'precuneus');
+
+%plot_treatmenteffects();
 
 
 
