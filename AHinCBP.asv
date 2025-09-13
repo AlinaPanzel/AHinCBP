@@ -2,7 +2,7 @@
 
 
 % Author: Alina Panzel
-% Last Date of Changes: 13.09.2025
+% Last Date of Changes: 12.09.2025
 
 %% Load Data & Atlases
 
@@ -84,11 +84,7 @@ fprintf('Pressure: Intensity effect p=%.4f, F=%.2f (df1=%d, df2=%.2f)\n', pval,F
 
 
 
-% -------- Longitudinal Analysis ----------
-
-% PLot treatment effects
-plot_auditory_treatmenteffects_collapsed(d)
-plot_auditory_treatmenteffects_byIntensity(d)
+% -------- Longitudi Analysis ----------
 
 
 %% Neural Analysis
@@ -107,7 +103,7 @@ neural_longitudinal = get_longitudinal_table(d,lo);
 
 % ------- Baseline Analysis -------
 
-% Fit & test
+plot_auditory_treatmenteffects_collapsed(d)
 
 
 % ------- Longitudinal Analysis -------

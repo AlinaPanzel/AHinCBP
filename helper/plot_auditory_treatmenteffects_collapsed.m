@@ -18,9 +18,10 @@ m.UC      = [mUC.S1,  mUC.S2];      ci.UC      = [ciUC.S1,  ciUC.S2];
 % ---- plot ----
 x = [1 2]; % Baseline, Post-Tx
 
-col.PRT     = [0.20 0.75 0.35];   % green
-col.placebo = [0.95 0.35 0.35];   % red
-col.UC      = [0.25 0.55 0.95];   % blue
+% ---- colors (locked to groups) ----
+col.PRT = [0.25 0.55 0.95];   % blue
+col.placebo = [0.20 0.75 0.35];   % green
+col.UC  = [0.95 0.35 0.35];   % red
 
 offs      = [-0.08, 0, 0.08];  % jitter per group
 alphaFill = 0.05; lwLine=2.6; lwErr=1.8; capSz=14; ms=7.5; mEdge=1.6;
@@ -37,9 +38,9 @@ h3 = plotGroup(m.UC,      ci.UC,      col.UC,      offs(3));
 allVals = [m.PRT, m.placebo, m.UC]; allCI = [ci.PRT, ci.placebo, ci.UC];
 yl = [min(allVals - allCI), max(allVals + allCI)];
 pad = 0.08*range(yl); if pad==0, pad=0.5; end
-ylim([35 60]);
-yticks(35:5:60);
-grid on
+ylim([30 65]);
+yticks(30:5:65);
+%grid on
 
 xlim([0.75 2.25]);
 set(gca,'XTick',x,'XTickLabel',{'Baseline','Post-Tx'}, ...
