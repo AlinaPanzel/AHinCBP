@@ -111,13 +111,13 @@ exportgraphics(f1, fullfile('figures','auditory_treatmenteffects_collapsed.png')
 f2 = plot_auditory_treatmenteffects_byIntensity(d);
 
 
+
+
 %% Neural Analysis
 
 % Load in ROI and MVPA values
 lo = load_ROI(a, lo);
 lo = load_MVPA(lo);
-
-neural_baseline = get_neural_baseline_table(d, lo);   % CUT
 
 neural_baseline_roi = get_neural_baseline_roi(d, lo);
 neural_baseline_mvpa = get_neural_baseline_mvpa(d,lo);
@@ -128,13 +128,199 @@ neural_longitudinal = get_longitudinal_table(d,lo);
 %save(fullfile('data','neural_longitudinal.mat'), 'neural_longitudinal')
 
 
-% ------- Baseline Analysis -------
+%% Neural Baseline: Independent T-test
 
-results = lmm_cbp_vs_hc_baseline(neural_baseline_roi)
-disp(results)
+% SOUND
+sound_baseline_roi = neural_baseline_roi(neural_baseline_roi.modality == "Sound",:); 
+
+T = sound_baseline_roi;
+T.GroupBin = categorical(ismember(T.group,[1 2 3]),[0 1],{'HC','CBP'});
+
+ROIs = categories(categorical(T.measure));
+ints = categories(categorical(T.intensity));
+
+for ii = 1:numel(ints)
+    thisInt = ints{ii};
+    fprintf('\n=== Intensity: %s ===\n', string(thisInt));
+
+    p = nan(numel(ROIs),1);
+    statsOut = cell(numel(ROIs),1);
+
+    for r = 1:numel(ROIs)
+        Tk = T(T.measure==ROIs{r} & T.intensity==thisInt,:);
+        x = Tk.value(Tk.GroupBin=="HC");
+        y = Tk.value(Tk.GroupBin=="CBP");
+        x = rmoutliers(x);
+        y = rmoutliers(y);
+        [~,p(r),~,st] = ttest2(x,y);
+        statsOut{r} = sprintf('%s: nHC=%d, nCBP=%d, meanHC=%.2f, meanCBP=%.2f, t=%.2f, p=%.4f',...
+            ROIs{r},numel(x),numel(y),mean(x,'omitnan'),mean(y,'omitnan'),st.tstat,p(r));
+    end
+
+    % FDR correction
+   [~,~,~,q] = fdr_bh(p); % if you have fdr_bh
+   
+    % Print results
+    for r=1:numel(ROIs)
+        fprintf('%s, q=%.4f\n', statsOut{r}, q(r));
+    end
+end
 
 
-% ------- Longitudinal Analysis -------
+
+% PRESSURE
+
+pressure_baseline_roi = neural_baseline_roi(neural_baseline_roi.modality == "Pressure",:); 
+
+T = pressure_baseline_roi;
+
+ROIs = categories(categorical(T.measure));
+ints = categories(categorical(T.intensity));
+
+for ii = 1:numel(ints)
+    thisInt = ints{ii};
+    fprintf('\n=== Intensity: %s ===\n', string(thisInt));
+
+    p = nan(numel(ROIs),1);
+    statsOut = cell(numel(ROIs),1);
+
+    for r = 1:numel(ROIs)
+        Tk = T(T.measure==ROIs{r} & T.intensity==thisInt,:);
+        x = Tk.value(Tk.GroupBin=="HC");
+        y = Tk.value(Tk.GroupBin=="CBP");
+        x = rmoutliers(x);
+        y = rmoutliers(y);
+        [~,p(r),~,st] = ttest2(x,y);
+        statsOut{r} = sprintf('%s: nHC=%d, nCBP=%d, meanHC=%.2f, meanCBP=%.2f, t=%.2f, p=%.4f',...
+            ROIs{r},numel(x),numel(y),mean(x,'omitnan'),mean(y,'omitnan'),st.tstat,p(r));
+    end
+
+    % FDR correction
+   [~,~,~,q] = fdr_bh(p); % if you have fdr_bh
+   
+    % Print results
+    for r=1:numel(ROIs)
+        fprintf('%s, q=%.4f\n', statsOut{r}, q(r));
+    end
+end
+
+
+%% Neural Baseline: LMM
+
+% Binary group for modelling/printing: HC vs CBP
+neural_baseline_roi.GroupBin = categorical(ismember(neural_baseline_roi.group,[1 2 3]), [0 1], {'HC','CBP'});
+
+% Ensure intensity is categorical Low/High
+if ~iscategorical(neural_baseline_roi.intensity)
+    neural_baseline_roi.intensity = categorical(neural_baseline_roi.intensity,[1 2],{'Low','High'});
+end
+
+allROIs = categories(categorical(neural_baseline_roi.measure));
+
+% SOUND
+fprintf('\n==== SOUND analysis (all ROIs) ====\n');
+res_sound = table(string.empty, zeros(0,1), nan(0,1), nan(0,1), nan(0,1), nan(0,1), ...
+    'VariableNames', {'ROI','N','F_group','df1','df2','p_group'});
+
+for i = 1:numel(allROIs)
+    R  = allROIs{i};
+
+    % --- subset this ROI for SOUND only (keep if you’re separating modalities this way) ---
+    Tk = neural_baseline_roi(neural_baseline_roi.measure==R & ...
+                             neural_baseline_roi.modality=="Sound", :);  % if you have a 'modality' var
+    if isempty(Tk), continue; end
+
+    % --- per-group outlier removal on 'value' ---
+    Lvls = categories(Tk.GroupBin);
+    idxDrop = false(height(Tk),1);
+    removedCounts = zeros(numel(Lvls),1);
+
+    for g = 1:numel(Lvls)
+        gi = Tk.GroupBin == Lvls{g};
+        if any(gi)
+            [~, out] = rmoutliers(Tk.value(gi));
+            removedCounts(g) = sum(out);
+            if removedCounts(g)>0
+                % mark rows to drop (only those flagged within this group)
+                idxLocal = find(gi);
+                idxDrop(idxLocal(out)) = true;
+            end
+        end
+    end
+    Tk(idxDrop,:) = [];
+
+    if height(Tk) < 4, continue; end
+
+    % --- print group means (by intensity) and outlier counts ---
+    Gstats = groupsummary(Tk, {'GroupBin','intensity'}, 'mean', 'value');
+    fprintf('\nROI: %s (SOUND)\n', R);
+    disp(Gstats(:, {'GroupBin','intensity','mean_value'}));
+    for g = 1:numel(Lvls)
+        fprintf('  Outliers removed in %-4s: %d\n', char(Lvls{g}), removedCounts(g));
+    end
+
+    % --- LMM (group main effect) ---
+    lme = fitlme(Tk, 'value ~ GroupBin*intensity + (1|subID)', 'FitMethod','REML');
+    [p,F,DF1,DF2] = coefTest(lme, [0 1 0 0], 0, 'DFMethod','Satterthwaite');
+    fprintf('  Group effect: F(%d,%.2f)=%.2f, p=%.4g   (N=%d rows)\n', DF1, DF2, F, p, height(Tk));
+
+    res_sound = [res_sound; {string(R), height(Tk), F, DF1, DF2, p}]; 
+end
+
+
+% PRESSURE
+fprintf('\n==== PRESSURE analysis (all ROIs) ====\n');
+res_press = table(string.empty, zeros(0,1), nan(0,1), nan(0,1), nan(0,1), nan(0,1), ...
+    'VariableNames', {'ROI','N','F_group','df1','df2','p_group'});
+
+for i = 1:numel(allROIs)
+    R  = allROIs{i};
+
+    % --- subset this ROI for PRESSURE only ---
+    Tk = neural_baseline_roi(neural_baseline_roi.measure==R & ...
+                             neural_baseline_roi.modality=="Pressure", :);  
+    if isempty(Tk), continue; end
+
+    % --- per-group outlier removal on 'value' ---
+    Lvls = categories(Tk.GroupBin);
+    idxDrop = false(height(Tk),1);
+    removedCounts = zeros(numel(Lvls),1);
+
+    for g = 1:numel(Lvls)
+        gi = Tk.GroupBin == Lvls{g};
+        if any(gi)
+            [~, out] = rmoutliers(Tk.value(gi));
+            removedCounts(g) = sum(out);
+            if removedCounts(g)>0
+                idxLocal = find(gi);
+                idxDrop(idxLocal(out)) = true;
+            end
+        end
+    end
+    Tk(idxDrop,:) = [];
+
+    if height(Tk) < 4, continue; end
+
+    % --- print group means (by intensity) and outlier counts ---
+    Gstats = groupsummary(Tk, {'GroupBin','intensity'}, 'mean', 'value');
+    fprintf('\nROI: %s (PRESSURE)\n', R);
+    disp(Gstats(:, {'GroupBin','intensity','mean_value'}));
+    for g = 1:numel(Lvls)
+        fprintf('  Outliers removed in %-4s: %d\n', char(Lvls{g}), removedCounts(g));
+    end
+
+    % --- LMM (group main effect) ---
+    lme = fitlme(Tk, 'value ~ GroupBin*intensity + (1|subID)', 'FitMethod','REML');
+    [p,F,DF1,DF2] = coefTest(lme, [0 1 0 0], 0, 'DFMethod','Satterthwaite');
+    fprintf('  Group effect: F(%d,%.2f)=%.2f, p=%.4g   (N=%d rows)\n', DF1, DF2, F, p, height(Tk));
+
+    res_press = [res_press; {string(R), height(Tk), F, DF1, DF2, p}]; %#ok<AGROW>
+end
+
+
+
+
+%% Neural Longitudinal 
 
 % Fit & test treatment effects with LMM (random slopes & intercepts)
 
