@@ -230,8 +230,9 @@ for i = 1:numel(allROIs)
                              neural_baseline_roi.modality=="Sound", :);  % if you have a 'modality' var
     if isempty(Tk), continue; end
 
+    % --- per-group outlier removal on 'value' using rmoutliers ---
     [g, gl] = findgroups(Tk.GroupBin);   % group index per row + labels
-    tf = false(height(Tk),1);            
+    tf = false(height(Tk),1);            % overall outlier flags
 
     for k = 1:numel(gl)
         idx = (g == k);
@@ -240,7 +241,10 @@ for i = 1:numel(allROIs)
     end
 
     removedCounts = splitapply(@sum, tf, g);  % how many removed per group
-    Tk(tf,:) = [];                            % drop em
+    Tk(tf,:) = [];                            % drop them
+
+    if height(Tk) < 4, continue; end
+
 
     % --- print group means (by intensity) and outlier counts ---
     Gstats = groupsummary(Tk, {'GroupBin','intensity'}, 'mean', 'value');
@@ -283,7 +287,9 @@ for i = 1:numel(allROIs)
     end
 
     removedCounts = splitapply(@sum, tf, g);  % how many removed per group
-    Tk(tf,:) = [];                            % drop em
+    Tk(tf,:) = [];                            % drop them
+
+    if height(Tk) < 4, continue; end
 
     % --- print group means (by intensity) and outlier counts ---
     Gstats = groupsummary(Tk, {'GroupBin','intensity'}, 'mean', 'value');
@@ -298,7 +304,7 @@ for i = 1:numel(allROIs)
     [p,F,DF1,DF2] = coefTest(lme, [0 1 0 0], 0, 'DFMethod','Satterthwaite');
     fprintf('  Group effect: F(%d,%.2f)=%.2f, p=%.4g   (N=%d rows)\n', DF1, DF2, F, p, height(Tk));
 
-    res_press = [res_press; {string(R), height(Tk), F, DF1, DF2, p}]; 
+    res_press = [res_press; {string(R), height(Tk), F, DF1, DF2, p}]; %#ok<AGROW>
 end
 
 
