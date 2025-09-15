@@ -39,9 +39,17 @@ behavioral_longitudinal = get_behavioral_longitudinal(d);
 %save(fullfile('data','behavioral_baseline.mat'), 'behavioral_baseline')
 %save(fullfile('data','behavioral_longitudinal.mat'), 'behavioral_longitudinal')
 
+
 % --- AUDIO (Sound) Ratings ---
+
 % Subset only sound trials (Low/High)
-AA = behavioral_baseline(behavioral_baseline.Modality=="Sound", :);
+AACBP = behavioral_baseline(behavioral_baseline.Modality=="Sound", :);
+
+% Remove outliers on Rating
+[~, idxOut] = rmoutliers(AA.Rating);
+AA(idxOut,:) = [];
+
+%histogram(AA.Rating) --> none removed
 
 % Linear mixed model:
 %   Rating ~ Age (centered) + Gender + Intensity (Low/High) * Group (CBP vs Healthy)
@@ -97,7 +105,10 @@ plot_auditory_treatmenteffects_byIntensity(d)
 lo = load_ROI(a, lo);
 lo = load_MVPA(lo);
 
-neural_baseline = get_neural_baseline_table(d, lo);
+neural_baseline = get_neural_baseline_table(d, lo);   % CUT
+
+neural_baseline_roi = get_neural_baseline_roi(d, lo);
+neural_baseline_mvpa = get_neural_baseline_mvpa(d,lo);
 neural_longitudinal = get_longitudinal_table(d,lo);
 
 % Save data
@@ -107,7 +118,8 @@ neural_longitudinal = get_longitudinal_table(d,lo);
 
 % ------- Baseline Analysis -------
 
-% Fit & test
+results = lmm_cbp_vs_hc_baseline(neural_baseline_roi)
+disp(results)
 
 
 % ------- Longitudinal Analysis -------
