@@ -43,7 +43,7 @@ behavioral_longitudinal = get_behavioral_longitudinal(d);
 % --- AUDIO (Sound) Ratings ---
 
 % Subset only sound trials (Low/High)
-AACBP = behavioral_baseline(behavioral_baseline.Modality=="Sound", :);
+AA = behavioral_baseline(behavioral_baseline.Modality=="Sound", :);
 
 % Remove outliers on Rating
 [~, idxOut] = rmoutliers(AA.Rating);
@@ -54,49 +54,61 @@ AA(idxOut,:) = [];
 % Linear mixed model:
 %   Rating ~ Age (centered) + Gender + Intensity (Low/High) * Group (CBP vs Healthy)
 %   Random intercept for subject ID
-lme_AA = fitlme(AA, ...
-    'Rating ~ cAge + nGender + Intensity*Group + (1|ID)', ...
-    'FitMethod','REML');
+lme_AA = fitlme(AA, 'Rating ~ cAge + nGender + Intensity*Group + (1|ID)','FitMethod','REML');
 
-disp('--- Sound model ---');
-disp(lme_AA);
+disp('--- Sound model ---'); disp(lme_AA);
 
-% Contrast 1: Group main effect (CBP vs Healthy)
-[pval,F,DF1,DF2] = coefTest(lme_AA, [0 1 0 0 0 0], 0, 'DFMethod','Satterthwaite');
-fprintf('Sound: Group effect p=%.4f, F=%.2f (df1=%d, df2=%.2f)\n', pval,F,DF1,DF2);
+% Group main effect
+[p,F,DF1,DF2] = coefTest(lme_AA, [0 0 1 0 0 0], 0, 'DFMethod','Satterthwaite');
+fprintf('Sound: Group effect        F(%d, %.2f)=%.2f, p=%.4g\n', DF1, DF2, F, p);
 
-% Contrast 2: Intensity*Group interaction
-[pval,F,DF1,DF2] = coefTest(lme_AA, [0 0 0 1 0 0], 0, 'DFMethod','Satterthwaite');
-fprintf('Sound: Intensity*Group interaction p=%.4f, F=%.2f (df1=%d, df2=%.2f)\n', pval,F,DF1,DF2);
+% Intensity main effect
+[p,F,DF1,DF2] = coefTest(lme_AA, [0 1 0 0 0 0], 0, 'DFMethod','Satterthwaite');
+fprintf('Sound: Intensity effect    F(%d, %.2f)=%.2f, p=%.4g\n', DF1, DF2, F, p);
+
+% Interaction
+[p,F,DF1,DF2] = coefTest(lme_AA, [0 0 0 0 0 1], 0, 'DFMethod','Satterthwaite');
+fprintf('Sound: Intensity×Group     F(%d, %.2f)=%.2f, p=%.4g\n', DF1, DF2, F, p);
+
 
 
 % --- PRESSURE (Thumb) Ratings ---
 % Subset only pressure (thumb) trials (Low/High)
 PP = behavioral_baseline(behavioral_baseline.Modality=="Pressure", :);
 
-% Linear mixed model
+% remove outliers on Rating
+[~, idxOut] = rmoutliers(PP.Rating);
+PP(idxOut,:) = [];
+
 lme_PP = fitlme(PP, ...
     'Rating ~ cAge + nGender + Intensity*Group + (1|ID)', ...
     'FitMethod','REML');
 
-disp('--- Pressure model ---');
-disp(lme_PP);
+disp('--- Pressure model ---'); disp(lme_PP);
 
-% Contrast 1: Group main effect (CBP vs Healthy)
-[pval,F,DF1,DF2] = coefTest(lme_PP, [0 1 0 0 0 0], 0, 'DFMethod','Satterthwaite');
-fprintf('Pressure: Group effect p=%.4f, F=%.2f (df1=%d, df2=%.2f)\n', pval,F,DF1,DF2);
+% Group main effect
+[p,F,DF1,DF2] = coefTest(lme_PP, [0 0 1 0 0 0], 0, 'DFMethod','Satterthwaite');
+fprintf('Pressure: Group effect     F(%d, %.2f)=%.2f, p=%.4g\n', DF1, DF2, F, p);
 
-% Contrast 2: Intensity main effect (High vs Low)
-[pval,F,DF1,DF2] = coefTest(lme_PP, [0 0 1 0 0 0], 0, 'DFMethod','Satterthwaite');
-fprintf('Pressure: Intensity effect p=%.4f, F=%.2f (df1=%d, df2=%.2f)\n', pval,F,DF1,DF2);
+% Intensity main effect
+[p,F,DF1,DF2] = coefTest(lme_PP, [0 1 0 0 0 0], 0, 'DFMethod','Satterthwaite');
+fprintf('Pressure: Intensity effect F(%d, %.2f)=%.2f, p=%.4g\n', DF1, DF2, F, p);
+
+% Interaction
+[p,F,DF1,DF2] = coefTest(lme_PP, [0 0 0 0 0 1], 0, 'DFMethod','Satterthwaite');
+fprintf('Pressure: Intensity×Group  F(%d, %.2f)=%.2f, p=%.4g\n', DF1, DF2, F, p);
 
 
 
 % -------- Longitudinal Analysis ----------
 
 % PLot treatment effects
-plot_auditory_treatmenteffects_collapsed(d)
-plot_auditory_treatmenteffects_byIntensity(d)
+f1 = plot_auditory_treatmenteffects_collapsed(d);
+saveas(f1, fullfile('figures','auditory_treatmenteffects_collapsed.png'));
+exportgraphics(f1, fullfile('figures','auditory_treatmenteffects_collapsed.png'), ...
+               'Resolution',300);
+
+f2 = plot_auditory_treatmenteffects_byIntensity(d);
 
 
 %% Neural Analysis

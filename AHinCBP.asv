@@ -43,19 +43,18 @@ behavioral_longitudinal = get_behavioral_longitudinal(d);
 % --- AUDIO (Sound) Ratings ---
 
 % Subset only sound trials (Low/High)
-AACBP = behavioral_baseline(behavioral_baseline.Modality=="Sound", :);
+AA = behavioral_baseline(behavioral_baseline.Modality=="Sound", :);
 
 % Remove outliers on Rating
 [~, idxOut] = rmoutliers(AA.Rating);
 AA(idxOut,:) = [];
 
-histogram(AA.Rating)
+%histogram(AA.Rating) --> none removed
 
 % Linear mixed model:
 %   Rating ~ Age (centered) + Gender + Intensity (Low/High) * Group (CBP vs Healthy)
 %   Random intercept for subject ID
-lme_AA = fitlme(AA, ...
-    'Rating ~ cAge + nGender + Intensity*Group + (1|ID)', ...
+lme_AA = fitlme(AA, 'Rating ~ cAge + nGender + Intensity*Group + (1|ID)', ...
     'FitMethod','REML');
 
 disp('--- Sound model ---');
