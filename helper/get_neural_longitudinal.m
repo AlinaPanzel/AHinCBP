@@ -1,4 +1,4 @@
-function data_long = get_longitudinal_table(d,lo)
+function data_long = get_neural_longitudinal(d,lo)
 
 %% Get long format table 
 

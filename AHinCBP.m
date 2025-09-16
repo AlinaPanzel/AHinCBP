@@ -34,7 +34,7 @@ a = load_MSS_atlases(a);
 % -------- Baseline Analysis ----------
 
 % Build baseline table in long format (has centered age and clean vars)
-behavioral_baseline = get_baseline_table(d, lo);
+behavioral_baseline = get_behavioral_baseline(d); 
 behavioral_longitudinal = get_behavioral_longitudinal(d);
 %save(fullfile('data','behavioral_baseline.mat'), 'behavioral_baseline')
 %save(fullfile('data','behavioral_longitudinal.mat'), 'behavioral_longitudinal')
@@ -119,21 +119,22 @@ f2 = plot_auditory_treatmenteffects_byIntensity(d);
 lo = load_ROI(a, lo);
 lo = load_MVPA(lo);
 
-neural_baseline_roi = get_neural_baseline_roi(d, lo);
-neural_baseline_mvpa = get_neural_baseline_mvpa(d,lo);
-neural_longitudinal = get_longitudinal_table(d,lo);
+% Get longformat data tables
+neural_baseline = get_neural_baseline(d, lo);
+neural_longitudinal = get_neural_longitudinal(d,lo);
 
 % Save data
 %save(fullfile('data','neural_baseline.mat'), 'neural_baseline')
 %save(fullfile('data','neural_longitudinal.mat'), 'neural_longitudinal')
 
-
 % DO outlier removal beforehand
+[neural_baseline_clean, outlier_summary] = clean_baseline_outliers(neural_baseline);
 
-[neural_baseline_roi_clean, outlier_summary] = clean_roi_outliers(neural_baseline_roi);
+%% Neural Baseline LMMs
 
 
-%% Neural Baseline: Independent T-test
+
+%% Neural Baseline ROI: Independent T-test
 
 % SOUND
 
@@ -330,6 +331,9 @@ function s = pstars1(p)
     end
 end
 
+%% Neural Baseline MVPA: Independent T-test
+
+
 
 %% Neural Longitudinal 
 
@@ -414,15 +418,10 @@ lme
 
 
 
-%% Plots & Visualizations
-
-% -------- Baseline Analysis ----------
+%% Neural Baseline 
 
 
-
-% ------- Longitudinal Analysis -------
-
-
-
-
+%% Baseline neural LMMs (ROI + MVPA), per modality
+%% Baseline neural LMMs (ROI + MVPA) — SOUND only
+R = lmm_neural_baseline_allmeasures(neural_baseline);
 
