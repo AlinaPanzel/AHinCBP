@@ -130,9 +130,102 @@ neural_longitudinal = get_neural_longitudinal(d,lo);
 % DO outlier removal beforehand
 [neural_baseline_clean, outlier_summary] = clean_baseline_outliers(neural_baseline);
 
-%% Neural Baseline LMMs
+
+%% Neural Baseline: LMM SOUND
+
+fprintf('\n==== SOUND analysis (all ROIs) LMM RESULTS ====\n');
+fprintf('%-16s | %4s %4s | %8s %8s | %8s %8s | %10s\n', ...
+    'ROI','nHC','nCBP','HC_Low','HC_High','CBP_Low','CBP_High','Group F (p)');
+fprintf('%s\n', repmat('-',1,90));
+
+res_sound = table(string.empty, zeros(0,1), nan(0,1), nan(0,1), nan(0,1), nan(0,1), ...
+    'VariableNames', {'ROI','N','F_group','df1','df2','p_group'});
+
+dropmvpa = {'general','sound','FM_PAIN','FM_MSS'};
+
+neural_baseline_roi_sound = neural_baseline_clean( ...
+    neural_baseline_clean.modality == "Sound" & ...
+    ~ismember(neural_baseline_clean.measure, dropmvpa), :);
+
+for i = 1:numel(allROIs)
+    R  = allROIs{i};
+
+    Tk = neural_baseline_roi_sound(neural_baseline_roi_sound.measure==R, :);
+
+    % group×intensity means (just for printing)
+    G = groupsummary(Tk, {'GroupBin','intensity'}, 'mean', 'value');
+    % make sure we have all cells; fill missing with NaN
+    gcat = {'HC','CBP'}; icat = {'Low','High'};
+    getMean = @(g,i) mean(G.mean_value(G.GroupBin==g & G.intensity==i),'omitnan');
+
+    hcL = getMean('HC','Low');  hcH = getMean('HC','High');
+    cbL = getMean('CBP','Low'); cbH = getMean('CBP','High');
+
+    % n per group (unique subjects after cleaning)
+    nHC  = numel(unique(Tk.subID(Tk.GroupBin=="HC"))); % for double check/oprinting
+    nCBP = numel(unique(Tk.subID(Tk.GroupBin=="CBP")));
+
+    % --- LMM ---
+    lme = fitlme(Tk, 'value ~ GroupBin*intensity + (1|subID)', 'FitMethod','REML');
+    [p,F,DF1,DF2] = coefTest(lme, [0 1 0 0], 0, 'DFMethod','Satterthwaite'); % Group main effect
+
+    % print one-line summary ROI
+    fprintf('%-16s | %4d %4d | %8.2f %8.2f | %8.2f %8.2f | %6.2f (%.3g)%s\n', ...
+        R, nHC, nCBP, hcL, hcH, cbL, cbH, F, p, pstars(p)); % pvals = Group effect
 
 
+    res_sound = [res_sound; {string(R), height(Tk), F, DF1, DF2, p}]; 
+end
+
+% ------- small helper -------
+
+
+%% Neural Baseline: PRESSURE
+
+fprintf('\n==== PRESSURE analysis (all ROIs) LMM RESULTS ====\n');
+fprintf('%-16s | %4s %4s | %8s %8s | %8s %8s | %10s\n', ...
+    'ROI','nHC','nCBP','HC_Low','HC_High','CBP_Low','CBP_High','Group F (p)');
+fprintf('%s\n', repmat('-',1,90));
+
+dropmvpa = {'general','sound','FM_PAIN','FM_MSS'};
+
+neural_baseline_roi_pressure = neural_baseline_clean( ...
+    neural_baseline_clean.modality == "Pressure" & ...
+    ~ismember(neural_baseline_clean.measure, dropmvpa), :);
+
+for i = 1:numel(allROIs)
+    R  = allROIs{i};
+
+    Tk = neural_baseline_roi_pressure(neural_baseline_roi_pressure.measure==R, :);
+    if isempty(Tk), continue; end
+
+    % counts removed per group (for print)
+    removedCounts = splitapply(@sum, tf, gGrp);
+    Tk(tf,:) = [];
+
+    % group×intensity means (for printing)
+    G = groupsummary(Tk, {'GroupBin','intensity'}, 'mean', 'value');
+    % ensure we have all cells; fill missing with NaN
+    gcat = {'HC','CBP'}; icat = {'Low','High'};
+    getMean = @(g,i) mean(G.mean_value(G.GroupBin==g & G.intensity==i),'omitnan');
+
+    hcL = getMean('HC','Low');  hcH = getMean('HC','High');
+    cbL = getMean('CBP','Low'); cbH = getMean('CBP','High');
+
+    % n per group (unique subjects after cleaning)
+    nHC  = numel(unique(Tk.subID(Tk.GroupBin=="HC")));
+    nCBP = numel(unique(Tk.subID(Tk.GroupBin=="CBP")));
+
+    % --- LMM ---
+    lme = fitlme(Tk, 'value ~ GroupBin*intensity + (1|subID)', 'FitMethod','REML');
+    [p,F,DF1,DF2] = coefTest(lme, [0 1 0 0], 0, 'DFMethod','Satterthwaite');
+
+    % tidy one-line summary for this ROI
+    fprintf('%-16s | %4d %4d | %8.2f %8.2f | %8.2f %8.2f | %6.2f (%.3g)%s\n', ...
+        R, nHC, nCBP, hcL, hcH, cbL, cbH, F, p, pstars1(p));
+
+    res_pressure = [res_pressure; {string(R), height(Tk), F, DF1, DF2, p}]; 
+end
 
 
 %% Neural Baseline ROI: Independent T-test (Current model)
@@ -165,7 +258,7 @@ for ii = 1:numel(ints)
     end
 
     % FDR correction
-   [~,~,~,q] = fdr_bh(p); % if you have fdr_bh
+   [~,~,~,q] = fdr_bh(p); 
    
     % Print results
     for r=1:numel(ROIs)
@@ -206,7 +299,7 @@ for ii = 1:numel(ints)
     end
 
     % FDR correction
-   [~,~,~,q] = fdr_bh(p); % if you have fdr_bh
+   [~,~,~,q] = fdr_bh(p); 
    
     % Print results
     for r=1:numel(ROIs)
