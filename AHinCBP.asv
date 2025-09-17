@@ -237,7 +237,7 @@ fprintf('%s\n', repmat('-',1,120));
 
 dropmvpa = {'general','sound','FM_PAIN','FM_MSS'};
 
-T = neural_baseline_clean( ...
+neural_baseline_roi_sound = neural_baseline_clean( ...
     neural_baseline_clean.modality == "Sound" & ...
     ~ismember(neural_baseline_clean.measure, dropmvpa), :);
 
@@ -263,9 +263,10 @@ for r = 1:numel(ROIs)
     nCBP = numel(unique(Tk.subID(Tk.GroupBin=="CBP")));
 
     [~,pL,~,stL] = ttest2(Tk.value(Tk.GroupBin=="HC"  & Tk.intensity=="Low"), ...
-                          Tk.value(Tk.GroupBin=="CBP" & Tk.intensity=="Low"), 'Vartype', 'unequal');
+                          Tk.value(Tk.GroupBin=="CBP" & Tk.intensity=="Low"));
     [~,pH,~,stH] = ttest2(Tk.value(Tk.GroupBin=="HC"  & Tk.intensity=="High"), ...
-                          Tk.value(Tk.GroupBin=="CBP" & Tk.intensity=="High"), 'Vartype', 'unequal');
+                          Tk.value(Tk.GroupBin=="CBP" & Tk.intensity=="High"), ...
+                          'Vartype','unequal');
 
     pLow(r)=pL; pHigh(r)=pH;
 
@@ -293,7 +294,6 @@ fprintf('%-18s | %4s %4s | %8s %8s | %8s %8s | %22s %22s\n', ...
 fprintf('%s\n', repmat('-',1,120));
 
 dropmvpa = {'general','sound','FM_PAIN','FM_MSS'};
-
 neural_baseline_roi_pressure = neural_baseline_clean( ...
     neural_baseline_clean.modality == "Pressure" & ...
     ~ismember(neural_baseline_clean.measure, dropmvpa), :);
@@ -322,11 +322,11 @@ for r = 1:numel(ROIs)
 
     xL = Tk.value(Tk.GroupBin=="HC"  & Tk.intensity=="Low");
     yL = Tk.value(Tk.GroupBin=="CBP" & Tk.intensity=="Low");
-    [~,pL,~,stL] = ttest2(xL,yL, 'Vartype','unequal');
+    [~,pL,~,stL] = ttest2(xL,yL);
 
     xH = Tk.value(Tk.GroupBin=="HC"  & Tk.intensity=="High");
     yH = Tk.value(Tk.GroupBin=="CBP" & Tk.intensity=="High");
-    [~,pH,~,stH] = ttest2(xH,yH, 'Vartype','unequal');
+    [~,pH,~,stH] = ttest2(xH,yH);
 
     pLow(r)=pL; pHigh(r)=pH;
 
