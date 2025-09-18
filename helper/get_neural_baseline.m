@@ -117,4 +117,18 @@ neural_baseline.GroupBin = categorical( ...
     ismember(neural_baseline.group, [1 2 3]), ...
     [0 1], {'HC','CBP'});
 
+neural_baseline.timepoint = [];
+% Rename first
+neural_baseline.Properties.VariableNames{'group'}    = 'treatgroup';
+neural_baseline.Properties.VariableNames{'GroupBin'} = 'group';
+
+% Now put the columns in the exact order you want
+neural_baseline = neural_baseline(:, ...
+    {'subID','group','treatgroup','measure','modality','intensity','value'});
+
+% (Optional) also sort the rows by these keys
+% I'd usually omit 'value' here to avoid reordering by magnitude.
+neural_baseline = sortrows(neural_baseline, ...
+    {'subID','group','treatgroup','measure','modality','intensity'});
+
 end

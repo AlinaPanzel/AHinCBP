@@ -40,7 +40,7 @@ behavioral_longitudinal = get_behavioral_longitudinal(d);
 %save(fullfile('data','behavioral_longitudinal.mat'), 'behavioral_longitudinal')
 
 
-% --- AUDIO (Sound) Ratings ---
+%% --- AUDIO (Sound) Ratings ---
 
 % Subset only sound trials (Low/High)
 AA = behavioral_baseline(behavioral_baseline.Modality=="Sound", :);
@@ -72,7 +72,7 @@ fprintf('Sound: Intensity×Group     F(%d, %.2f)=%.2f, p=%.4g\n', DF1, DF2, F, p
 
 
 
-% --- PRESSURE (Thumb) Ratings ---
+%% --- PRESSURE (Thumb) Ratings ---
 % Subset only pressure (thumb) trials (Low/High)
 PP = behavioral_baseline(behavioral_baseline.Modality=="Pressure", :);
 
@@ -121,17 +121,17 @@ lo = load_MVPA(lo);
 
 % Get longformat data tables
 neural_baseline = get_neural_baseline(d, lo);
-neural_longitudinal_sound = get_neural_longitudinal(d,lo);
+neural_longitudinal = get_neural_longitudinal(d,lo);
 
 % Save data
 %save(fullfile('data','neural_baseline.mat'), 'neural_baseline')
-%save(fullfile('data','neural_longitudinal_sound.mat'), 'neural_longitudinal')
+%save(fullfile('data','neural_longitudinal.mat'), 'neural_longitudinal')
 
 % DO outlier removal beforehand
 [neural_baseline_clean, outlier_summary] = clean_baseline_outliers(neural_baseline);
 
 
-%% %% Neural Baseline: LMM SOUND
+%% Neural Baseline: LMM SOUND
 
 fprintf('\n==== LMM RESULTS SOUND ====\n');
 fprintf('%-16s | %4s %4s | %8s %8s | %8s %8s | %10s\n', ...
@@ -177,6 +177,10 @@ for i = 1:numel(allROIs)
     DF2 = NaN; % why should there be two DFs? 
     T = stats.tStat(3); % T not F; not renaming now
 
+    %[p,F,DF1,DF2] = coefTest(lme, [0 1 0 0], 0,
+    %'DFMethod','Satterthwaite'); % Yoni: I am not sure what this -- can
+    %you explain?
+
     % print one-line summary ROI
     fprintf('%-16s | %4d %4d | %8.2f %8.2f | %8.2f %8.2f | %6.2f [%3.2f] (%.3g)%s\n', ...
         R, nHC, nCBP, hcL, hcH, cbL, cbH, T, DF1, p, pstars(p)); % pvals = Group effect
@@ -186,7 +190,8 @@ for i = 1:numel(allROIs)
 end
 
 
-%% Neural Baseline: LMM PRESSURE
+
+%% Neural Baseline: PRESSURE
 
 fprintf('\n==== LMM RESULTS PRESSURE====\n');
 fprintf('%-16s | %4s %4s | %8s %8s | %8s %8s | %10s\n', ...
@@ -207,6 +212,14 @@ for i = 1:numel(allROIs)
 
     Tk = neural_baseline_roi_pressure(neural_baseline_roi_pressure.measure==R, :);
     
+    %if isempty(Tk), continue; end % YONI: SHOULD NEVER HAPPEN. COMMENTING
+    %OUT
+
+    % counts removed per group (for print) -- Yoni commenting out b/c
+    % crashes -- tf not defined -- and b/c not in sound loop above
+    % removedCounts = splitapply(@sum, tf, gGrp);
+    % Tk(tf,:) = [];
+
     % group×intensity means (for printing)
     G = groupsummary(Tk, {'GroupBin','intensity'}, 'mean', 'value');
     % ensure we have all cells; fill missing with NaN
@@ -230,6 +243,10 @@ for i = 1:numel(allROIs)
     DF2 = NaN; % why should there be two DFs? 
     T = stats.tStat(3); % T not F; not renaming now
 
+    %[p,F,DF1,DF2] = coefTest(lme, [0 1 0 0], 0,
+    %'DFMethod','Satterthwaite'); % Yoni: I am not sure what this -- can
+    %you explain?
+    % tidy one-line summary for this ROI
     fprintf('%-16s | %4d %4d | %8.2f %8.2f | %8.2f %8.2f | %6.2f [%3.2f] (%.3g)%s\n', ...
         R, nHC, nCBP, hcL, hcH, cbL, cbH, T, DF1, p, pstars(p));
 
@@ -237,12 +254,153 @@ for i = 1:numel(allROIs)
 end
 
 
-%% Neural Longitudinal: LMM SOUND 
+%% Neural Baseline ROI: Independent T-test SOund(Current model+removed outliers+fdr correction)
+
+fprintf('\n==== T-TEST RESULTS SOUND ====\n');
+fprintf('%-18s | %4s %4s | %8s %8s | %8s %8s | %22s %22s\n', ...
+    'ROI','nHC','nCBP','HC_Low','HC_High','CBP_Low','CBP_High','t_Low (p)[q]','t_High (p)[q]');
+fprintf('%s\n', repmat('-',1,120));
+
+dropmvpa = {'general','sound','FM_PAIN','FM_MSS'};
+
+T = neural_baseline_clean( ...
+    neural_baseline_clean.modality == "Sound" & ...
+    ~ismember(neural_baseline_clean.measure, dropmvpa), :);
+
+T.GroupBin = categorical(ismember(T.group,[1 2 3]),[0 1],{'HC','CBP'});
+ROIs = categories(categorical(T.measure));
+
+pLow  = nan(numel(ROIs),1);
+pHigh = nan(numel(ROIs),1);
+
+% collect to print after FDR
+rows(numel(ROIs)) = struct('roi',[],'nHC',[],'nCBP',[],'hcL',[],'hcH',[],'cbL',[],'cbH',[], ...
+                           'tL',[],'pL',[],'tH',[],'pH',[]);
+for r = 1:numel(ROIs)
+    roi = ROIs{r};
+    Tk  = T(T.measure==roi,:);
+
+    m = groupsummary(Tk, {'GroupBin','intensity'}, 'mean', 'value');
+    getM = @(g,i) mean(m.mean_value(m.GroupBin==g & m.intensity==i),'omitnan');
+    hcL = getM('HC','Low');   hcH = getM('HC','High');
+    cbL = getM('CBP','Low');  cbH = getM('CBP','High');
+
+    nHC  = numel(unique(Tk.subID(Tk.GroupBin=="HC")));
+    nCBP = numel(unique(Tk.subID(Tk.GroupBin=="CBP")));
+
+    [~,pL,~,stL] = ttest2(Tk.value(Tk.GroupBin=="HC"  & Tk.intensity=="Low"), ...
+                          Tk.value(Tk.GroupBin=="CBP" & Tk.intensity=="Low"), 'Vartype', 'unequal');
+    [~,pH,~,stH] = ttest2(Tk.value(Tk.GroupBin=="HC"  & Tk.intensity=="High"), ...
+                          Tk.value(Tk.GroupBin=="CBP" & Tk.intensity=="High"), 'Vartype', 'unequal');
+
+    pLow(r)=pL; pHigh(r)=pH;
+
+    rows(r).roi=roi; rows(r).nHC=nHC; rows(r).nCBP=nCBP;
+    rows(r).hcL=hcL; rows(r).hcH=hcH; rows(r).cbL=cbL; rows(r).cbH=cbH;
+    rows(r).tL=stL.tstat; rows(r).pL=pL; rows(r).tH=stH.tstat; rows(r).pH=pH;
+end
+
+[~,~,~,qLow]  = fdr_bh(pLow);
+[~,~,~,qHigh] = fdr_bh(pHigh);
+
+for r = 1:numel(rows)
+    colLow  = fmt_tpq(rows(r).tL, rows(r).pL, qLow(r));
+    colHigh = fmt_tpq(rows(r).tH, rows(r).pH, qHigh(r));
+    fprintf('%-18s | %4d %4d | %8.2f %8.2f | %8.2f %8.2f | %22s %22s\n', ...
+        rows(r).roi, rows(r).nHC, rows(r).nCBP, ...
+        rows(r).hcL, rows(r).hcH, rows(r).cbL, rows(r).cbH, ...
+        colLow, colHigh);
+end
+
+%% ====== T-TEST RESULTS PRESSURE (aligned) ======
+fprintf('\n==== T-TEST RESULTS PRESSURE ====\n');
+fprintf('%-18s | %4s %4s | %8s %8s | %8s %8s | %22s %22s\n', ...
+    'ROI','nHC','nCBP','HC_Low','HC_High','CBP_Low','CBP_High','t_Low (p)[q]','t_High (p)[q]');
+fprintf('%s\n', repmat('-',1,120));
+
+dropmvpa = {'general','sound','FM_PAIN','FM_MSS'};
+
+neural_baseline_roi_pressure = neural_baseline_clean( ...
+    neural_baseline_clean.modality == "Pressure" & ...
+    ~ismember(neural_baseline_clean.measure, dropmvpa), :);
+
+T = neural_baseline_roi_pressure; 
+
+if ~ismember('GroupBin',T.Properties.VariableNames)
+    T.GroupBin = categorical(ismember(T.group,[1 2 3]),[0 1],{'HC','CBP'});
+end
+ROIs = categories(categorical(T.measure));
+pLow  = nan(numel(ROIs),1); pHigh = nan(numel(ROIs),1);
+rows(:) = struct('roi',[],'nHC',[],'nCBP',[],'hcL',[],'hcH',[],'cbL',[],'cbH',[], ...
+                 'tL',[],'pL',[],'tH',[],'pH',[]);
+
+for r = 1:numel(ROIs)
+    roi = ROIs{r};
+    Tk  = T(T.measure==roi,:);
+
+    m = groupsummary(Tk, {'GroupBin','intensity'}, 'mean', 'value');
+    getM = @(g,i) mean(m.mean_value(m.GroupBin==g & m.intensity==i),'omitnan');
+    hcL = getM('HC','Low');   hcH = getM('HC','High');
+    cbL = getM('CBP','Low');  cbH = getM('CBP','High');
+
+    nHC  = numel(unique(Tk.subID(Tk.GroupBin=="HC")));
+    nCBP = numel(unique(Tk.subID(Tk.GroupBin=="CBP")));
+
+    xL = Tk.value(Tk.GroupBin=="HC"  & Tk.intensity=="Low");
+    yL = Tk.value(Tk.GroupBin=="CBP" & Tk.intensity=="Low");
+    [~,pL,~,stL] = ttest2(xL,yL, 'Vartype','unequal');
+
+    xH = Tk.value(Tk.GroupBin=="HC"  & Tk.intensity=="High");
+    yH = Tk.value(Tk.GroupBin=="CBP" & Tk.intensity=="High");
+    [~,pH,~,stH] = ttest2(xH,yH, 'Vartype','unequal');
+
+    pLow(r)=pL; pHigh(r)=pH;
+
+    rows(r).roi=roi; rows(r).nHC=nHC; rows(r).nCBP=nCBP;
+    rows(r).hcL=hcL; rows(r).hcH=hcH; rows(r).cbL=cbL; rows(r).cbH=cbH;
+    rows(r).tL=stL.tstat; rows(r).pL=pL; rows(r).tH=stH.tstat; rows(r).pH=pH;
+end
+
+[~,~,~,qLow]  = fdr_bh(pLow);
+[~,~,~,qHigh] = fdr_bh(pHigh);
+
+for r = 1:numel(rows)
+    colLow  = fmt_tpq(rows(r).tL, rows(r).pL, qLow(r));
+    colHigh = fmt_tpq(rows(r).tH, rows(r).pH, qHigh(r));
+    fprintf('%-18s | %4d %4d | %8.2f %8.2f | %8.2f %8.2f | %22s %22s\n', ...
+        rows(r).roi, rows(r).nHC, rows(r).nCBP, ...
+        rows(r).hcL, rows(r).hcH, rows(r).cbL, rows(r).cbH, ...
+        colLow, colHigh);
+end
+
+% ---------- helpers ----------
+function s = fmt_tpq(t,p,q)
+% Fixed-width 22-char column: "   ttt (     ppp) *** [     qqq]"
+% stars are a fixed 4-char field, so alignment never drifts.
+    if isnan(t) || isnan(p)
+        s = sprintf('%7s (%8s)%4s [%8s]','NA','NA','', 'NA');
+        return
+    end
+    s = sprintf('%7.2f (%8.3g)%4s [%8.3g]', t, p, pstars_fixed(p), q);
+end
+
+function s = pstars_fixed(p)
+% Always 4 chars: ' ***',' ** ',' *  ','    '
+    if isnan(p), s = '    '; return; end
+    if p < 1e-3, s = ' ***';
+    elseif p < 1e-2, s = ' ** ';
+    elseif p < 5e-2, s = ' *  ';
+    else, s = '    ';
+    end
+end
+
+
+%% Neural Longitudinal 
 
 % Fit & test treatment effects with LMM (random slopes & intercepts)
 
 % Set up & clearn
-T = neural_longitudinal_sound;                             % columns: subID,timepoint,group,intensity,measure,value
+T = neural_longitudinal;                             % columns: subID,timepoint,group,intensity,measure,value
 T.value     = double(T.value);
 T.subID     = categorical(T.subID);
 T.group     = categorical(T.group);
@@ -300,4 +458,20 @@ Rprint.q_BH= round(Rprint.q_BH,4);
 
 disp('=== Group × Time interaction (per measure) ===');
 disp(Rprint);
+
+
+% FOR YONI TO CHECK
+
+Tk = T(T.measure == 'mPFC', :);
+lme = fitlme(Tk, 'value ~ group*timepoint + intensity + (1 + timepoint | subID)');
+lme
+
+Tk = T(T.measure == 'precuneus', :);
+lme = fitlme(Tk, 'value ~ group*timepoint + intensity + (1 + timepoint | subID)');
+lme
+
+
+
+%plot_treatmenteffects();
+
 
