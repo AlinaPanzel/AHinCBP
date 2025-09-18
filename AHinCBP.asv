@@ -6,7 +6,7 @@
 
 %% Load Data & Atlases
 
-% clean
+% clean 
 clc;
 clear;
 
@@ -34,7 +34,7 @@ a = load_MSS_atlases(a);
 % -------- Baseline Analysis ----------
 
 % Build baseline table in long format (has centered age and clean vars)
-behavioral_baseline = get_behavioral_baseline(d);
+behavioral_baseline = get_behavioral_baseline(d); 
 behavioral_longitudinal = get_behavioral_longitudinal(d);
 %save(fullfile('data','behavioral_baseline.mat'), 'behavioral_baseline')
 %save(fullfile('data','behavioral_longitudinal.mat'), 'behavioral_longitudinal')
@@ -100,35 +100,13 @@ fprintf('Pressure: Intensity×Group  F(%d, %.2f)=%.2f, p=%.4g\n', DF1, DF2, F, p
 
 
 
-% PLOT AUDITORY 
-
-% Set up the figure
-hf = figure; % Open figure and keep handle
-hf = colordef(hf, 'white'); % Set color scheme
-hf.Color = 'w'; % Set background color of figure window
-%sgt = sgtitle("Unisensory Auditory");
-%sgt.FontSize = 38;
-
-% Define y-limits for the plots
-yLimit = [-2 7];
-
-% Plot data for different regions
-plot_allgoodplot(roi.A1, [1 2 3 4], 'Auditory Cortex','roi', yLimit, 3, true);
-plot_allgoodplot(roi.MGN, [5 6 7 8], 'Medial Geniculate Nucleus','roi', yLimit, 3, true);
-plot_allgoodplot(roi.IC, [9 10 11 12], 'Inferior Colliculus','roi', yLimit, 3, true);
-
-
-
-
-
-
 % -------- Longitudinal Analysis ----------
 
 % PLot treatment effects
 f1 = plot_auditory_treatmenteffects_collapsed(d);
 saveas(f1, fullfile('figures','auditory_treatmenteffects_collapsed.png'));
 exportgraphics(f1, fullfile('figures','auditory_treatmenteffects_collapsed.png'), ...
-    'Resolution',300);
+               'Resolution',300);
 
 f2 = plot_auditory_treatmenteffects_byIntensity(d);
 
@@ -192,7 +170,7 @@ for i = 1:numel(allROIs)
     % --- LMM ---
     lme = fitlme(Tk, 'value ~ group + intensity + (1|subID)', 'FitMethod','REML');
     [~,~,stats] = fixedEffects(lme, 'DFMethod','Satterthwaite'); % the DF are inflated, this corrects that
-
+    
     % Find the coefficient for CBP vs HC regardless of ordering -> did this
     % because I restructured the tables
     ix = find(strcmp(stats.Name,'group'));
@@ -207,7 +185,7 @@ for i = 1:numel(allROIs)
         R, nHC, nCBP, hcL, hcH, cbL, cbH, T, DF1, p, pstars(p)); % pvals = Group effect
 
 
-    res_sound = [res_sound; {string(R), height(Tk), T, DF1, DF2, p}];
+    res_sound = [res_sound; {string(R), height(Tk), T, DF1, DF2, p}]; 
 end
 
 
@@ -230,7 +208,7 @@ for i = 1:numel(allROIs)
     R  = allROIs{i};
 
     Tk = neural_baseline_roi_pressure(neural_baseline_roi_pressure.measure==R, :);
-
+    
     % group×intensity means (for printing)
     G = groupsummary(Tk, {'group','intensity'}, 'mean', 'value');
     % ensure we have all cells; fill missing with NaN
@@ -247,7 +225,7 @@ for i = 1:numel(allROIs)
     % --- LMM ---
     lme = fitlme(Tk, 'value ~ group + intensity + (1|subID)', 'FitMethod','REML');
     [~,~,stats] = fixedEffects(lme, 'DFMethod','Satterthwaite'); % the DF are inflated, this corrects that
-
+    
     % Find the coefficient for CBP vs HC regardless of ordering -> did this
     % because I restructured the tables
     ix = find(strcmp(stats.Name,'group'));
@@ -260,10 +238,11 @@ for i = 1:numel(allROIs)
     fprintf('%-16s | %4d %4d | %8.2f %8.2f | %8.2f %8.2f | %6.2f [%3.2f] (%.3g)%s\n', ...
         R, nHC, nCBP, hcL, hcH, cbL, cbH, T, DF1, p, pstars(p));
 
-    res_pressure = [res_pressure; {string(R), height(Tk), T, DF1, DF2, p}];
+    res_pressure = [res_pressure; {string(R), height(Tk), T, DF1, DF2, p}]; 
 end
 
 %% Neural Baseline: LMM MVPA
+
 fprintf('\n==== LMM RESULTS SOUND (MVPAs) ====\n');
 fprintf('%-16s | %4s %4s | %8s %8s | %8s %8s | %10s\n', ...
     'MVPA','nHC','nCBP','HC_Low','HC_High','CBP_Low','CBP_High','Group t [df] (p)');
@@ -284,12 +263,65 @@ T.measure   = removecats(categorical(string(T.measure)));
 allMVPAs = cellstr(categories(T.measure));
 
 % ---- FIX: 5 columns for 5 names ----
-res_sound = table( ...
-    string.empty, ...   % MVPA
-    zeros(0,1), ...     % N
-    nan(0,1), ...       % t_group
-    nan(0,1), ...       % df
-    nan(0,1), ...       % p_group
+res_sound = table(string.empty,zeros(0,1), nan(0,1), nan(0,1), nan(0,1), ...   
+    'VariableNames', {'MVPA','N','t_group','df','p_group'});
+
+
+for i = 1:numel(allMVPAs)
+    M  = allMVPAs{i};
+    Tk = T(T.measure==M, :);
+    if isempty(Tk), continue; end
+
+    % means for printing
+    G = groupsummary(Tk, {'group','intensity'}, 'mean', 'value');
+    getMean = @(g,i) mean(G.mean_value(G.group==g & G.intensity==i),'omitnan');
+    hcL = getMean('HC','Low');   hcH = getMean('HC','High');
+    cbL = getMean('CBP','Low');  cbH = getMean('CBP','High');
+
+    ef.hedgesg;
+    % n per group (unique subjects)
+    nHC  = numel(unique(Tk.subID(Tk.group=="HC")));
+    nCBP = numel(unique(Tk.subID(Tk.group=="CBP")));
+
+    % LMM: Group main effect (averaged over intensity), with fixed coding
+    lme = fitlme(Tk, 'value ~ group + intensity + (1|subID)', ...
+                 'FitMethod','REML','DummyVarCoding','reference');
+
+    % pull the Group coefficient by NAME (stable to ordering)
+    [~,~,stats] = fixedEffects(lme,'DFMethod','Satterthwaite');
+    ix = find(strcmp(stats.Name,'group_CBP'));     % CBP vs HC (HC is ref)
+    if isempty(ix)
+        ix = find(contains(stats.Name,'group'));   % fallback if label formatting differs
+    end
+    t  = stats.tStat(ix);
+    df = stats.DF(ix);
+    p  = stats.pValue(ix);
+
+    fprintf('%-16s | %4d %4d | %8.2f %8.2f | %8.2f %8.2f | %6.2f [%3.2f] (%.3g)%s\n', ...
+        M, nHC, nCBP, hcL, hcH, cbL, cbH, t, df, p, pstars(p));
+
+    res_sound = [res_sound; {string(M), height(Tk), t, df, p}]; %#ok<AGROW>
+end
+
+
+fprintf('\n==== LMM RESULTS PRESSURE (MVPAs) ====\n');
+fprintf('%-16s | %4s %4s | %8s %8s | %8s %8s | %10s\n', ...
+    'MVPA','nHC','nCBP','HC_Low','HC_High','CBP_Low','CBP_High','Group t [df] (p)');
+fprintf('%s\n', repmat('-',1,90));
+
+T = neural_baseline_clean( ...
+    neural_baseline_clean.modality=="Pressure" & ...
+    ismember(neural_baseline_clean.measure, mvpaKeep), :);
+
+T.value     = double(T.value);
+T.group     = categorical(string(T.group), {'HC','CBP'});     % lock refs: HC baseline
+T.intensity = categorical(string(T.intensity), {'Low','High'}); % lock refs: Low baseline
+T.measure   = removecats(categorical(string(T.measure)));
+
+allMVPAs = cellstr(categories(T.measure));
+
+%Preallocate
+res_pressure = table(string.empty,zeros(0,1), nan(0,1), nan(0,1), nan(0,1), ...   
     'VariableNames', {'MVPA','N','t_group','df','p_group'});
 
 for i = 1:numel(allMVPAs)
@@ -312,91 +344,6 @@ for i = 1:numel(allMVPAs)
                  'FitMethod','REML','DummyVarCoding','reference');
 
     % pull the Group coefficient by NAME (stable to ordering)
-    [~,~,FE] = fixedEffects(lme,'DFMethod','Satterthwaite');
-    ix = find(strcmp(FE.Name,'group_CBP'));     % CBP vs HC (HC is ref)
-    if isempty(ix)
-        ix = find(contains(FE.Name,'group'));   % fallback if label formatting differs
-    end
-    t  = FE.tStat(ix);
-    df = FE.DF(ix);
-    p  = FE.pValue(ix);
-
-    fprintf('%-16s | %4d %4d | %8.2f %8.2f | %8.2f %8.2f | %6.2f [%3.2f] (%.3g)%s\n', ...
-        M, nHC, nCBP, hcL, hcH, cbL, cbH, t, df, p, pstars(p));
-
-    res_sound = [res_sound; {string(M), height(Tk), t, df, p}]; %#ok<AGROW>
-end
-
-
-fprintf('\n==== EFFECT SIZES SOUND (MVPAs) ====\n');
-fprintf('%-16s | %10s | %10s\n','MVPA','g_Low [95% CI]','g_High [95% CI]');
-fprintf('%s\n', repmat('-',1,46));
-
-for i = 1:numel(allMVPAs)
-    M  = allMVPAs{i};
-    Tk = T(T.measure==M,:);
-    if isempty(Tk), continue; end
-
-    % Low intensity
-    xL = Tk.value(Tk.group=="HC"  & Tk.intensity=="Low");
-    yL = Tk.value(Tk.group=="CBP" & Tk.intensity=="Low");
-    efL = mes(xL,yL,'hedgesg');
-    gL  = efL.hedgesg;
-    ciL = efL.hedgesgCi(:)';
-
-    % High intensity
-    xH = Tk.value(Tk.group=="HC"  & Tk.intensity=="High");
-    yH = Tk.value(Tk.group=="CBP" & Tk.intensity=="High");
-    efH = mes(xH,yH,'hedgesg');
-    gH  = efH.hedgesg;
-    ciH = efH.hedgesgCi(:)';
-
-    fprintf('%-16s | %+.2f [%+.2f, %+.2f] | %+.2f [%+.2f, %+.2f]\n', ...
-        M, gL, ciL(1), ciL(2), gH, ciH(1), ciH(2));
-end
-
-
-
-fprintf('\n==== LMM RESULTS PRESSURE (MVPAs) ====\n');
-fprintf('%-16s | %4s %4s | %8s %8s | %8s %8s | %10s\n', ...
-    'MVPA','nHC','nCBP','HC_Low','HC_High','CBP_Low','CBP_High','Group t [df] (p)');
-fprintf('%s\n', repmat('-',1,90));
-
-T = neural_baseline_clean( ...
-    neural_baseline_clean.modality=="Pressure" & ...
-    ismember(neural_baseline_clean.measure, mvpaKeep), :);
-
-T.value     = double(T.value);
-T.group     = categorical(string(T.group), {'HC','CBP'});     % lock refs: HC baseline
-T.intensity = categorical(string(T.intensity), {'Low','High'}); % lock refs: Low baseline
-T.measure   = removecats(categorical(string(T.measure)));
-
-allMVPAs = cellstr(categories(T.measure));
-
-%Preallocate
-res_pressure = table(string.empty,zeros(0,1), nan(0,1), nan(0,1), nan(0,1), ...
-    'VariableNames', {'MVPA','N','t_group','df','p_group'});
-
-for i = 1:numel(allMVPAs)
-    M  = allMVPAs{i};
-    Tk = T(T.measure==M, :);
-    if isempty(Tk), continue; end
-
-    % means for printing
-    G = groupsummary(Tk, {'group','intensity'}, 'mean', 'value');
-    getMean = @(g,i) mean(G.mean_value(G.group==g & G.intensity==i),'omitnan');
-    hcL = getMean('HC','Low');   hcH = getMean('HC','High');
-    cbL = getMean('CBP','Low');  cbH = getMean('CBP','High');
-
-    % n per group (unique subjects)
-    nHC  = numel(unique(Tk.subID(Tk.group=="HC")));
-    nCBP = numel(unique(Tk.subID(Tk.group=="CBP")));
-
-    % LMM: Group main effect (averaged over intensity), with fixed coding
-    lme = fitlme(Tk, 'value ~ group + intensity + (1|subID)', ...
-        'FitMethod','REML','DummyVarCoding','reference');
-
-    % pull the Group coefficient by NAME (stable to ordering)
     [~,~,stats] = fixedEffects(lme,'DFMethod','Satterthwaite');
     ix = find(strcmp(stats.Name,'group_CBP'));     % CBP vs HC (HC is ref)
     if isempty(ix)
@@ -409,38 +356,11 @@ for i = 1:numel(allMVPAs)
     fprintf('%-16s | %4d %4d | %8.2f %8.2f | %8.2f %8.2f | %6.2f [%3.2f] (%.3g)%s\n', ...
         M, nHC, nCBP, hcL, hcH, cbL, cbH, t, df, p, pstars(p));
 
-    res_pressure = [res_pressure; {string(M), height(Tk), t, df, p}];
+    res_pressure = [res_pressure; {string(M), height(Tk), t, df, p}]; 
 end
 
 
-fprintf('\n==== EFFECT SIZES PRESSURE (MVPAs) ====\n');
-fprintf('%-16s | %10s | %10s\n','MVPA','g_Low [95% CI]','g_High [95% CI]');
-fprintf('%s\n', repmat('-',1,46));
-
-for i = 1:numel(allMVPAs)
-    M  = allMVPAs{i};
-    Tk = T(T.measure==M,:);
-    if isempty(Tk), continue; end
-
-    % Low intensity
-    xL = Tk.value(Tk.group=="HC"  & Tk.intensity=="Low");
-    yL = Tk.value(Tk.group=="CBP" & Tk.intensity=="Low");
-    efL = mes(xL,yL,'hedgesg');
-    gL  = efL.hedgesg;
-    ciL = efL.hedgesgCi(:)';
-
-    % High intensity
-    xH = Tk.value(Tk.group=="HC"  & Tk.intensity=="High");
-    yH = Tk.value(Tk.group=="CBP" & Tk.intensity=="High");
-    efH = mes(xH,yH,'hedgesg');
-    gH  = efH.hedgesg;
-    ciH = efH.hedgesgCi(:)';
-
-    fprintf('%-16s | %+.2f [%+.2f, %+.2f] | %+.2f [%+.2f, %+.2f]\n', ...
-        M, gL, ciL(1), ciL(2), gH, ciH(1), ciH(2));
-end
-
-%% Neural Longitudinal: LMM SOUND
+%% Neural Longitudinal: LMM SOUND 
 
 % Fit & test treatment effects with LMM (random slopes & intercepts)
 
@@ -462,19 +382,19 @@ models  = struct('measure',{},'lme',{});
 for k = 1:numel(measures)
     m  = measures{k};
     Tk = T(T.measure == m, :);
-
+    
     % Make sure predictors are categorical/numeric as needed
     Tk.group     = categorical(Tk.group);
     Tk.timepoint = double(Tk.timepoint);   % 1=baseline, 2=post
     Tk.intensity = double(Tk.intensity);   % 1=low, 2=high
-
+    
     % Random intercept + random slope for timepoint
     lme = fitlme(Tk, 'value ~ group*timepoint + intensity + (1 + timepoint | subID)');
-
+    
     % Joint test of group × timepoint
     cn = string(lme.CoefficientNames);
     J  = find(contains(cn,"group") & contains(cn,"timepoint"));
-
+    
     if ~isempty(J)
         L = zeros(numel(J), numel(cn));
         for i=1:numel(J), L(i,J(i)) = 1; end
