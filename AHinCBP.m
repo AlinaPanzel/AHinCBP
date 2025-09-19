@@ -122,7 +122,7 @@ plot_allgoodplot(roi.IC, [9 10 11 12], 'Inferior Colliculus','roi', yLimit, 3, t
 
 
 
-% -------- Longitudinal Analysis ----------
+% -------- Behavioural Longitudinal Analysis ----------
 
 % PLot treatment effects
 f1 = plot_auditory_treatmenteffects_collapsed(d);
@@ -563,7 +563,7 @@ for k = 1:numel(measures)
     end
 
     results = [results; {string(m), height(Tk), F, df1, df2, p}];
-    models(end+1).measure = string(m); %#ok<SAGROW>
+    models(end+1).measure = string(m); 
     models(end).lme = lme;
 end
 
@@ -582,4 +582,7 @@ Rprint.q_BH= round(Rprint.q_BH,4);
 
 disp('=== Group × Time interaction (per measure) ===');
 disp(Rprint);
+
+
+
 

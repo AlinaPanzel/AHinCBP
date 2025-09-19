@@ -1,0 +1,91 @@
+function f = plot_mpfc_treatmenteffects_sound(T)
+% Plot mPFC treatment effects (Sound only), collapsing Low/High per session.
+% T columns expected: subID, timepoint (1=Baseline,2=Post), group (1=PRT,2=Placebo,3=UC),
+% intensity, measure, value.
+
+% --- filter to mPFC (and Sound, if table includes other modalities) ---
+T.measure = string(T.measure);
+Tk = T(T.measure=="mPFC",:);      % table in your screenshot is already "sound"
+% If your table also has a 'modality' column, add:  Tk = Tk(Tk.modality=="Sound",:);
+
+% --- collapse Low/High within subject x session ---
+G = groupsummary(Tk, {'subID','group','timepoint'}, 'mean', 'value');
+% This gives one row per subject/session with the mean across intensities
+
+% --- compute group means and 95% CI per session ---
+alpha = 0.02;
+grpVals = [1 2 3];                          % 1=PRT, 2=Placebo, 3=UC
+labels  = {'PRT','Placebo','UC'};
+means   = nan(3,2);                          % rows=group, cols= S1,S2
+cihw    = nan(3,2);
+
+for gi = 1:numel(grpVals)
+    g = grpVals(gi);
+    for s = 1:2
+        v = G.mean_value(G.group==g & G.timepoint==s);
+        v = v(~isnan(v));
+        n = numel(v);
+        if n>0
+            mu = mean(v);
+            se = std(v)/sqrt(n);
+            hw = tinv(1-alpha/2, max(n-1,1)) * se;   % half-width of 95% CI
+            means(gi,s) = mu;
+            cihw(gi,s)  = hw;
+        end
+    end
+end
+
+% --- plot ---
+x      = [1 2];                 % Baseline, Post
+offs   = [-0.08 0 0.08];        % jitter per group
+cols   = [0.25 0.55 0.95; ...   % PRT (blue)
+          0.20 0.75 0.35; ...   % Placebo (green)
+          0.95 0.35 0.35];      % UC (red)
+
+f  = figure('Color','w','Position',[120 120 760 520], ...
+            'Tag','mPFC_treatmenteffects_sound');
+ax = axes('Parent',f); hold(ax,'on');
+
+lwLine=2.6; lwErr=1.8; capSz=14; ms=7.5; mEdge=1.6; alphaFill=0.05;
+h = gobjects(1,3);
+
+for gi = 1:3
+    xj = x + offs(gi);
+    m  = means(gi,:);
+    hw = cihw(gi,:);
+    c  = cols(gi,:);
+
+    % CI ribbon
+    xu = [xj, fliplr(xj)];
+    yu = [m + hw, fliplr(m - hw)];
+    patch('XData',xu,'YData',yu,'FaceColor',c,'FaceAlpha',alphaFill, ...
+          'EdgeColor','none','Parent',ax);
+
+    % mean line + error bars + markers
+    h(gi) = plot(ax, xj, m, '-', 'Color', c, 'LineWidth', lwLine);
+    errorbar(ax, xj, m, hw, 'LineStyle','none', 'Color', c, ...
+             'LineWidth', lwErr, 'CapSize', capSz);
+    plot(ax, xj, m, 'o', 'MarkerSize', ms, 'MarkerFaceColor','w', ...
+         'MarkerEdgeColor', c, 'LineWidth', mEdge);
+end
+
+% cosmetics
+xlim(ax,[0.75 2.25]); set(ax,'XTick',x,'XTickLabel',{'Baseline','Post-Tx'});
+% pick sensible y-lims from data
+yl = [min(means-cihw,[],'all','omitnan') max(means+cihw,[],'all','omitnan')];
+if all(isfinite(yl))
+    pad = 0.05 * range(yl);
+    ylim(ax, [yl(1)-pad, yl(2)+pad]);
+end
+set(ax,'FontName','Helvetica','FontSize',12,'LineWidth',1.2,'Box','off');
+ylabel(ax,'mPFC activity (a.u.)','FontWeight','bold')
+
+sgtitle(f,'mPFC: Treatment Effects ', ...
+        'FontSize',16,'FontWeight','bold');
+
+legend(ax,h,labels,'Orientation','horizontal','Location','northoutside','Box','off');
+
+% stash numbers for export
+f.UserData.means = struct('PRT',means(1,:), 'Placebo',means(2,:), 'UC',means(3,:));
+f.UserData.cihw  = struct('PRT',cihw(1,:),  'Placebo',cihw(2,:),  'UC',cihw(3,:));
+end

@@ -122,7 +122,7 @@ plot_allgoodplot(roi.IC, [9 10 11 12], 'Inferior Colliculus','roi', yLimit, 3, t
 
 
 
-% -------- Longitudinal Analysis ----------
+% -------- Behavioural Longitudinal Analysis ----------
 
 % PLot treatment effects
 f1 = plot_auditory_treatmenteffects_collapsed(d);
@@ -297,6 +297,38 @@ for i = 1:numel(allROIs)
 end
 
 
+fprintf('\n==== EFFECT SIZES PRESSURE (ROIs) ====\n');
+fprintf('%-16s | %s | %s\n','ROI','Low Intensity','High Intensity');
+fprintf('%-16s | %s | %s\n',' ', ...
+    'HC (M±SD), CBP (M±SD), g [95%% CI]', ...
+    'HC (M±SD), CBP (M±SD), g [95%% CI]');
+fprintf('%s\n', repmat('-',1,120));
+
+for i = 1:numel(allROIs)
+    R  = allROIs{i};
+    Tk = neural_baseline_roi_pressure(neural_baseline_roi_pressure.measure==R, :);
+    if isempty(Tk), continue; end
+
+    % --- Low intensity ---
+    xL = Tk.value(Tk.group=="HC"  & Tk.intensity=="Low");
+    yL = Tk.value(Tk.group=="CBP" & Tk.intensity=="Low");
+    mHCL = mean(xL,'omitnan'); sHCL = std(xL,'omitnan');
+    mCBPL = mean(yL,'omitnan'); sCBPL = std(yL,'omitnan');
+    efL = mes(xL,yL,'hedgesg');                 % Hedges' g (MES toolbox)
+    gL  = efL.hedgesg;  ciL = efL.hedgesgCi(:)';
+
+    % --- High intensity ---
+    xH = Tk.value(Tk.group=="HC"  & Tk.intensity=="High");
+    yH = Tk.value(Tk.group=="CBP" & Tk.intensity=="High");
+    mHCH = mean(xH,'omitnan'); sHCH = std(xH,'omitnan');
+    mCBPH = mean(yH,'omitnan'); sCBPH = std(yH,'omitnan');
+    efH = mes(xH,yH,'hedgesg');
+    gH  = efH.hedgesg;  ciH = efH.hedgesgCi(:)';
+
+    fprintf('%-16s | HC %.2f±%.2f, CBP %.2f±%.2f, g=%+.2f [%+.2f, %+.2f] | HC %.2f±%.2f, CBP %.2f±%.2f, g=%+.2f [%+.2f, %+.2f]\n', ...
+        R, mHCL,sHCL,mCBPL,sCBPL,gL,ciL(1),ciL(2), ...
+           mHCH,sHCH,mCBPH,sCBPH,gH,ciH(1),ciH(2));
+end
 
 %% Neural Baseline: LMM MVPA
 fprintf('\n==== LMM RESULTS SOUND (MVPAs) ====\n');
@@ -531,7 +563,7 @@ for k = 1:numel(measures)
     end
 
     results = [results; {string(m), height(Tk), F, df1, df2, p}];
-    models(end+1).measure = string(m); %#ok<SAGROW>
+    models(end+1).measure = string(m); 
     models(end).lme = lme;
 end
 
@@ -550,4 +582,7 @@ Rprint.q_BH= round(Rprint.q_BH,4);
 
 disp('=== Group × Time interaction (per measure) ===');
 disp(Rprint);
+
+
+
 
