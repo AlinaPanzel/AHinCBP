@@ -2,7 +2,7 @@
 
 
 % Author: Alina Panzel
-% Last Date of Changes: 13.09.2025
+% Last Date of Changes: 19.09.2025
 
 %% Load Data & Atlases
 
@@ -517,6 +517,75 @@ for i = 1:numel(allMVPAs)
         M, mHC_L, sHC_L, mCBP_L, sCBP_L, gL, ciL(1), ciL(2), ...
            mHC_H, sHC_H, mCBP_H, sCBP_H, gH, ciH(1), ciH(2));
 end
+
+
+%% Classification
+
+%% Exploratory Whole Brain Grey Matter Voxelwise Analysis
+
+%% ===== Exploratory voxelwise CBP vs HC at baseline (S1) =====
+% Uses lo.G1.S1/all_*_* etc.  Conditions: 'all_s_l','all_s_h','all_t_l','all_t_h'
+
+conds = {'all_s_l','all_s_h','all_t_l','all_t_h'};   % Sound Low/High, Pressure Low/High
+alpha  = 0.001;        % voxelwise p for display (uncorrected)
+kmin   = 10;           % min cluster size for display
+
+for c = 1:numel(conds)
+    cond = conds{c};
+    fprintf('\n=== Condition: %s ===\n', cond);
+
+    % -- 1) Gather fmri_data for CBP (G1+G2+G3) and HC at baseline (S1)
+    Dcbp = [lo.G1.S1.(cond), lo.G2.S1.(cond), lo.G3.S1.(cond)];  % concatenate images (subjects)
+    Dhc  =  lo.HC.S1.(cond);
+
+    % -- 2) Concatenate CBP and HC into one dataset
+    dat = [Dcbp, Dhc];   % fmri_data horzcat (images are columns)
+
+    % Counts
+    nCBP = size(Dcbp.dat, 2);
+    nHC  = size(Dhc.dat,  2);
+    nTot = nCBP + nHC;
+
+    % -- 3) Smooth
+    dat_smooth = preprocess(dat, 'smooth', 6);
+
+    % -- 4) Weighted group regressor (sums to 0 so it's a clean contrast)
+    g = [ ones(nCBP,1) * ( 1/nCBP );    ...  % CBP
+         -ones(nHC,1)  * ( 1/nHC  ) ];      % HC
+    X = [g, ones(nTot,1)];                  % [GroupContrast, Intercept]
+    varnames = {'Group_CBP_vs_HC','Intercept'};
+
+    % Quick check (should be ~0)
+    fprintf('  mean(group regressor) = %.3e\n', mean(g));
+
+    % -- 5) Mask to gray matter
+    gm = fmri_data(which('gray_matter_mask.nii'));
+    gm.dat = gm.dat > 0.3;
+    dat_mask = apply_mask(dat_smooth, gm);
+
+    % -- 6) Run regression (robust, uncorrected display thresholds)
+    dat_mask.X = X;
+    out = regress(dat_mask, 'variable_names', varnames, alpha, 'unc', 'k', kmin, 'robust');
+
+    % -- 7) Pull the Group effect (1st regressor) and show
+    Tmap = select_one_image(out.t, 1);     % 1 = Group_CBP_vs_HC
+    figure('Color','w'); orthviews(Tmap);  title(sprintf('%s : CBP > HC (weighted)', cond));
+
+    % Optional: slices montage
+    figure('Color','w');
+    montage(Tmap, 'trans', 'full');
+    sgtitle(sprintf('CBP vs HC (weighted) — %s', cond));
+
+    % -- 8) Table of clusters with (rough) labels
+    reg = region(out.t);    % uses current threshold set by regress
+    tbl = table(reg);
+    disp(tbl);
+
+    % ---- Optional saves ----
+    % write(Tmap, 'fname', sprintf('tmap_CBP_vs_HC_%s.nii', cond), 'thresh');  % thresholded
+    % write(out.t, 'fname', sprintf('tall_CBP_vs_HC_%s.nii', cond));           % full t-stack
+end
+
 
 
 %% Neural Longitudinal: LMM SOUND
