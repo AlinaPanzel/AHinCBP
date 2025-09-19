@@ -12,6 +12,7 @@ Tk = T(T.measure=="mPFC",:);      % table in your screenshot is already "sound"
 G = groupsummary(Tk, {'subID','group','timepoint'}, 'mean', 'value');
 % This gives one row per subject/session with the mean across intensities
 
+
 % --- compute group means and 95% CI per session ---
 alpha = 0.02;
 grpVals = [1 2 3];                          % 1=PRT, 2=Placebo, 3=UC
@@ -46,7 +47,7 @@ f  = figure('Color','w','Position',[120 120 760 520], ...
             'Tag','mPFC_treatmenteffects_sound');
 ax = axes('Parent',f); hold(ax,'on');
 
-lwLine=2.6; lwErr=1.8; capSz=14; ms=7.5; mEdge=1.6; alphaFill=0.05;
+lwLine=2.6; lwErr=1.8; capSz=14; ms=7.5; mEdge=1.6; alphaFill=0.04;
 h = gobjects(1,3);
 
 for gi = 1:3
@@ -69,23 +70,49 @@ for gi = 1:3
          'MarkerEdgeColor', c, 'LineWidth', mEdge);
 end
 
-% cosmetics
-xlim(ax,[0.75 2.25]); set(ax,'XTick',x,'XTickLabel',{'Baseline','Post-Tx'});
-% pick sensible y-lims from data
+% ----- axes cosmetics (main axes with black labels + light grid) -----
+xlim(ax,[0.75 2.25]);
+set(ax,'XTick',[1 2],'XTickLabel',{'Baseline','Post-Tx'});
+
+% lock y-range starting at -0.25
 yl = [min(means-cihw,[],'all','omitnan') max(means+cihw,[],'all','omitnan')];
-if all(isfinite(yl))
-    pad = 0.05 * range(yl);
-    ylim(ax, [yl(1)-pad, yl(2)+pad]);
-end
-set(ax,'FontName','Helvetica','FontSize',12,'LineWidth',1.2,'Box','off');
-ylabel(ax,'mPFC activity (a.u.)','FontWeight','bold')
+if ~all(isfinite(yl)), yl = [-0.25 0.06]; end
+yl(1) = -0.25;                     % start exactly at -0.25
+pad   = 0.05*range(yl);
+ylim(ax,[yl(1) yl(2)+pad]);
+
+set(ax, 'FontName','Helvetica','FontSize',16, ...
+        'LineWidth',1.2, ...
+        'Box','off', ...                          % no box here
+        'XGrid','on','YGrid','on', ...
+        'GridColor',[0.88 0.88 0.88], ...         % light grid
+        'GridAlpha',0.55, ...
+        'XColor','k','YColor','k');               % BLACK tick labels
+
+ylabel(ax,'mPFC activity','FontWeight','bold','Color','k');
+
+% ----- overlay a frame-only axes to draw a light-gray box -----
+axFrame = axes('Position',ax.Position, 'Color','none', ...
+               'XLim',ax.XLim, 'YLim',ax.YLim, ...
+               'XTick',[], 'YTick',[], ...
+               'Box','on', ...
+               'XColor',[0.85 0.85 0.85], ...     % light-gray frame
+               'YColor',[0.85 0.85 0.85], ...
+               'LineWidth',1.2, ...
+               'HitTest','off','HandleVisibility','off');
+
+uistack(ax,'top');   % keep your data/labels above the frame
+
+ylabel(ax,'mPFC activity','FontWeight','bold','Color','k')  % black axis label
+
 
 sgtitle(f,'mPFC: Treatment Effects ', ...
-        'FontSize',16,'FontWeight','bold');
+        'FontSize',16);
 
 legend(ax,h,labels,'Orientation','horizontal','Location','northoutside','Box','off');
 
 % stash numbers for export
 f.UserData.means = struct('PRT',means(1,:), 'Placebo',means(2,:), 'UC',means(3,:));
 f.UserData.cihw  = struct('PRT',cihw(1,:),  'Placebo',cihw(2,:),  'UC',cihw(3,:));
+grid on;
 end
