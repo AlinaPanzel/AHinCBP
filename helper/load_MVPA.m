@@ -14,7 +14,7 @@ for g = 1:numel(Treatment)
     for s = 1:numel(sessions)
         ses = sessions{s};
 
-        % Example policy: skip HC at S2 (comment this out if not desired)
+        % Example : skip HC at S2 
         if strcmp(grp,'HC') && strcmp(ses,'S2')
             fprintf('MVPA: skip %s %s (HC baseline-only)\n', grp, ses);
             continue

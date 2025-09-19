@@ -163,7 +163,7 @@ fprintf('%s\n', repmat('-',1,90));
 res_sound = table(string.empty, zeros(0,1), nan(0,1), nan(0,1), nan(0,1), nan(0,1), ...
     'VariableNames', {'ROI','N','T_group','df1','df2','p_group'});
 
-dropmvpa = {'general','sound','FM_PAIN','FM_MSS'};
+dropmvpa = {'general','sound','mechanical','FM_PAIN','FM_MSS'};
 
 neural_baseline_roi_sound = neural_baseline_clean( ...
     neural_baseline_clean.modality == "Sound" & ...
@@ -202,14 +202,47 @@ for i = 1:numel(allROIs)
     t  = stats.tStat(ix);
     df = stats.DF(ix);
     p  = stats.pValue(ix);
-    % print one-line summary ROI
+
     fprintf('%-16s | %4d %4d | %8.2f %8.2f | %8.2f %8.2f | %6.2f [%3.2f] (%.3g)%s\n', ...
-        R, nHC, nCBP, hcL, hcH, cbL, cbH, T, DF1, p, pstars(p)); % pvals = Group effect
+        R, nHC, nCBP, hcL, hcH, cbL, cbH, t, df, p, pstars(double(p)));
 
 
     res_sound = [res_sound; {string(R), height(Tk), T, DF1, DF2, p}];
 end
 
+
+fprintf('\n==== EFFECT SIZES SOUND (ROIs) ====\n');
+fprintf('%-16s | %s | %s\n','ROI','Low Intensity','High Intensity');
+fprintf('%-16s | %s | %s\n',' ', ...
+    'HC (M±SD), CBP (M±SD), g [95%% CI]', ...
+    'HC (M±SD), CBP (M±SD), g [95%% CI]');
+fprintf('%s\n', repmat('-',1,120));
+
+for i = 1:numel(allROIs)
+    R  = allROIs{i};
+    Tk = neural_baseline_roi_sound(neural_baseline_roi_sound.measure==R, :);
+    if isempty(Tk), continue; end
+
+    % --- Low intensity ---
+    xL = Tk.value(Tk.group=="HC"  & Tk.intensity=="Low");
+    yL = Tk.value(Tk.group=="CBP" & Tk.intensity=="Low");
+    mHCL = mean(xL,'omitnan'); sHCL = std(xL,'omitnan');
+    mCBPL = mean(yL,'omitnan'); sCBPL = std(yL,'omitnan');
+    efL = mes(xL,yL,'hedgesg');                 % Hedges' g (MES toolbox)
+    gL  = efL.hedgesg;  ciL = efL.hedgesgCi(:)';
+
+    % --- High intensity ---
+    xH = Tk.value(Tk.group=="HC"  & Tk.intensity=="High");
+    yH = Tk.value(Tk.group=="CBP" & Tk.intensity=="High");
+    mHCH = mean(xH,'omitnan'); sHCH = std(xH,'omitnan');
+    mCBPH = mean(yH,'omitnan'); sCBPH = std(yH,'omitnan');
+    efH = mes(xH,yH,'hedgesg');
+    gH  = efH.hedgesg;  ciH = efH.hedgesgCi(:)';
+
+    fprintf('%-16s | HC %.2f±%.2f, CBP %.2f±%.2f, g=%+.2f [%+.2f, %+.2f] | HC %.2f±%.2f, CBP %.2f±%.2f, g=%+.2f [%+.2f, %+.2f]\n', ...
+        R, mHCL,sHCL,mCBPL,sCBPL,gL,ciL(1),ciL(2), ...
+           mHCH,sHCH,mCBPH,sCBPH,gH,ciH(1),ciH(2));
+end
 
 
 fprintf('\n==== LMM RESULTS PRESSURE====\n');
@@ -217,7 +250,7 @@ fprintf('%-16s | %4s %4s | %8s %8s | %8s %8s | %10s\n', ...
     'ROI','nHC','nCBP','HC_Low','HC_High','CBP_Low','CBP_High','Group T [DF] (p)');
 fprintf('%s\n', repmat('-',1,90));
 
-dropmvpa = {'general','sound','FM_PAIN','FM_MSS'};
+dropmvpa = {'general','sound','mechanical','FM_PAIN','FM_MSS'};
 
 res_pressure = table(string.empty, zeros(0,1), nan(0,1), nan(0,1), nan(0,1), nan(0,1), ...
     'VariableNames', {'ROI','N','T_group','df1','df2','p_group'});
@@ -257,10 +290,44 @@ for i = 1:numel(allROIs)
     t  = stats.tStat(ix);
     df = stats.DF(ix);
     p  = stats.pValue(ix);
+   
     fprintf('%-16s | %4d %4d | %8.2f %8.2f | %8.2f %8.2f | %6.2f [%3.2f] (%.3g)%s\n', ...
-        R, nHC, nCBP, hcL, hcH, cbL, cbH, T, DF1, p, pstars(p));
-
+        R, nHC, nCBP, hcL, hcH, cbL, cbH, t, df, p, pstars(double(p)));
     res_pressure = [res_pressure; {string(R), height(Tk), T, DF1, DF2, p}];
+end
+
+
+fprintf('\n==== EFFECT SIZES PRESSURE (ROIs) ====\n');
+fprintf('%-16s | %s | %s\n','ROI','Low Intensity','High Intensity');
+fprintf('%-16s | %s | %s\n',' ', ...
+    'HC (M±SD), CBP (M±SD), g [95%% CI]', ...
+    'HC (M±SD), CBP (M±SD), g [95%% CI]');
+fprintf('%s\n', repmat('-',1,120));
+
+for i = 1:numel(allROIs)
+    R  = allROIs{i};
+    Tk = neural_baseline_roi_pressure(neural_baseline_roi_pressure.measure==R, :);
+    if isempty(Tk), continue; end
+
+    % --- Low intensity ---
+    xL = Tk.value(Tk.group=="HC"  & Tk.intensity=="Low");
+    yL = Tk.value(Tk.group=="CBP" & Tk.intensity=="Low");
+    mHCL = mean(xL,'omitnan'); sHCL = std(xL,'omitnan');
+    mCBPL = mean(yL,'omitnan'); sCBPL = std(yL,'omitnan');
+    efL = mes(xL,yL,'hedgesg');                 % Hedges' g (MES toolbox)
+    gL  = efL.hedgesg;  ciL = efL.hedgesgCi(:)';
+
+    % --- High intensity ---
+    xH = Tk.value(Tk.group=="HC"  & Tk.intensity=="High");
+    yH = Tk.value(Tk.group=="CBP" & Tk.intensity=="High");
+    mHCH = mean(xH,'omitnan'); sHCH = std(xH,'omitnan');
+    mCBPH = mean(yH,'omitnan'); sCBPH = std(yH,'omitnan');
+    efH = mes(xH,yH,'hedgesg');
+    gH  = efH.hedgesg;  ciH = efH.hedgesgCi(:)';
+
+    fprintf('%-16s | HC %.2f±%.2f, CBP %.2f±%.2f, g=%+.2f [%+.2f, %+.2f] | HC %.2f±%.2f, CBP %.2f±%.2f, g=%+.2f [%+.2f, %+.2f]\n', ...
+        R, mHCL,sHCL,mCBPL,sCBPL,gL,ciL(1),ciL(2), ...
+           mHCH,sHCH,mCBPH,sCBPH,gH,ciH(1),ciH(2));
 end
 
 %% Neural Baseline: LMM MVPA
@@ -269,7 +336,7 @@ fprintf('%-16s | %4s %4s | %8s %8s | %8s %8s | %10s\n', ...
     'MVPA','nHC','nCBP','HC_Low','HC_High','CBP_Low','CBP_High','Group t [df] (p)');
 fprintf('%s\n', repmat('-',1,90));
 
-mvpaKeep = {'general','sound','FM_PAIN','FM_MSS'};
+mvpaKeep = {'general','sound','mechanical','FM_PAIN','FM_MSS'};
 
 % subset + light type coercion
 T = neural_baseline_clean( ...
@@ -336,13 +403,14 @@ for i = 1:numel(allMVPAs)
     M  = allMVPAs{i};
     Tk = T(T.measure==M,:);
     if isempty(Tk), continue; end
-
-    % Low intensity
+ % Low intensity
     xL = Tk.value(Tk.group=="HC"  & Tk.intensity=="Low");
     yL = Tk.value(Tk.group=="CBP" & Tk.intensity=="Low");
     efL = mes(xL,yL,'hedgesg');
     gL  = efL.hedgesg;
     ciL = efL.hedgesgCi(:)';
+    mHC_L = mean(xL,'omitnan'); sHC_L = std(xL,'omitnan');
+    mCBP_L = mean(yL,'omitnan'); sCBP_L = std(yL,'omitnan');
 
     % High intensity
     xH = Tk.value(Tk.group=="HC"  & Tk.intensity=="High");
@@ -350,9 +418,13 @@ for i = 1:numel(allMVPAs)
     efH = mes(xH,yH,'hedgesg');
     gH  = efH.hedgesg;
     ciH = efH.hedgesgCi(:)';
+    mHC_H = mean(xH,'omitnan'); sHC_H = std(xH,'omitnan');
+    mCBP_H = mean(yH,'omitnan'); sCBP_H = std(yH,'omitnan');
 
-    fprintf('%-16s | %+.2f [%+.2f, %+.2f] | %+.2f [%+.2f, %+.2f]\n', ...
-        M, gL, ciL(1), ciL(2), gH, ciH(1), ciH(2));
+    % Print one row: effect sizes + descriptive stats
+    fprintf('%-16s | HC %.2f±%.2f, CBP %.2f±%.2f, g=%.2f [%+.2f, %+.2f] | HC %.2f±%.2f, CBP %.2f±%.2f, g=%.2f [%+.2f, %+.2f]\n', ...
+        M, mHC_L, sHC_L, mCBP_L, sCBP_L, gL, ciL(1), ciL(2), ...
+           mHC_H, sHC_H, mCBP_H, sCBP_H, gH, ciH(1), ciH(2));
 end
 
 
@@ -412,10 +484,10 @@ for i = 1:numel(allMVPAs)
     res_pressure = [res_pressure; {string(M), height(Tk), t, df, p}];
 end
 
-
 fprintf('\n==== EFFECT SIZES PRESSURE (MVPAs) ====\n');
-fprintf('%-16s | %10s | %10s\n','MVPA','g_Low [95% CI]','g_High [95% CI]');
-fprintf('%s\n', repmat('-',1,46));
+fprintf('%-16s | %24s | %24s\n','MVPA','Low Intensity','High Intensity');
+fprintf('%-16s | %9s %9s | %9s %9s\n',' ', 'HC (M±SD)','CBP (M±SD)','HC (M±SD)','CBP (M±SD)');
+fprintf('%s\n', repmat('-',1,80));
 
 for i = 1:numel(allMVPAs)
     M  = allMVPAs{i};
@@ -428,6 +500,8 @@ for i = 1:numel(allMVPAs)
     efL = mes(xL,yL,'hedgesg');
     gL  = efL.hedgesg;
     ciL = efL.hedgesgCi(:)';
+    mHC_L = mean(xL,'omitnan'); sHC_L = std(xL,'omitnan');
+    mCBP_L = mean(yL,'omitnan'); sCBP_L = std(yL,'omitnan');
 
     % High intensity
     xH = Tk.value(Tk.group=="HC"  & Tk.intensity=="High");
@@ -435,10 +509,15 @@ for i = 1:numel(allMVPAs)
     efH = mes(xH,yH,'hedgesg');
     gH  = efH.hedgesg;
     ciH = efH.hedgesgCi(:)';
+    mHC_H = mean(xH,'omitnan'); sHC_H = std(xH,'omitnan');
+    mCBP_H = mean(yH,'omitnan'); sCBP_H = std(yH,'omitnan');
 
-    fprintf('%-16s | %+.2f [%+.2f, %+.2f] | %+.2f [%+.2f, %+.2f]\n', ...
-        M, gL, ciL(1), ciL(2), gH, ciH(1), ciH(2));
+    % Print one row: effect sizes + descriptive stats
+    fprintf('%-16s | HC %.2f±%.2f, CBP %.2f±%.2f, g=%.2f [%+.2f, %+.2f] | HC %.2f±%.2f, CBP %.2f±%.2f, g=%.2f [%+.2f, %+.2f]\n', ...
+        M, mHC_L, sHC_L, mCBP_L, sCBP_L, gL, ciL(1), ciL(2), ...
+           mHC_H, sHC_H, mCBP_H, sCBP_H, gH, ciH(1), ciH(2));
 end
+
 
 %% Neural Longitudinal: LMM SOUND
 
