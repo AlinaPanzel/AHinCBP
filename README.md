@@ -3,7 +3,7 @@
 
 Author: Alina Panzel
 
-Last edited: 18.09.2025
+Last edited: 29.09.2025
 
 Language: MATLAB
 
@@ -69,7 +69,7 @@ Increased mPFC activity compared to usual care.
 
 ## Usage
 
-Get data at https://neurovault.org/collections/19628/
+Get data at https://osf.io/pngkr/
 
 Clone the repo and open in MATLAB.
 
