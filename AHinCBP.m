@@ -99,8 +99,7 @@ fprintf('Pressure: Intensity effect F(%d, %.2f)=%.2f, p=%.4g\n', DF1, DF2, F, p)
 fprintf('Pressure: Intensity×Group  F(%d, %.2f)=%.2f, p=%.4g\n', DF1, DF2, F, p);
 
 
-
-% PLOT AUDITORY 
+% -------- Plot Unpleasantness -----------
 
 % Set up the figure
 hf = figure; % Open figure and keep handle
@@ -110,14 +109,13 @@ hf.Color = 'w'; % Set background color of figure window
 %sgt.FontSize = 38;
 
 % Define y-limits for the plots
-yLimit = [-2 7];
+yLimit = [-10 110];
 
 % Plot data for different regions
-plot_allgoodplot(roi.A1, [1 2 3 4], 'Auditory Cortex','roi', yLimit, 3, true);
-plot_allgoodplot(roi.MGN, [5 6 7 8], 'Medial Geniculate Nucleus','roi', yLimit, 3, true);
-plot_allgoodplot(roi.IC, [9 10 11 12], 'Inferior Colliculus','roi', yLimit, 3, true);
+plot_figures(d, [1 2 3 4], 'Unpleasantness Ratings','behavioral', yLimit, 1, false);
 
 
+% -------- Behavioural Correlations ----------
 
 
 
@@ -270,7 +268,9 @@ end
 
 print_effectsizes(neural_baseline_roi_pressure, 'ROI (PRESSURE)');
 
+% plot ROI
 
+get_roiplots(lo)
 
 %% Neural Baseline: LMM MVPA
 
@@ -404,6 +404,9 @@ end
 T_pressure = T;
 print_effectsizes(T_pressure, 'MVPA (Pressure)');
 
+% Plot MVPAs
+
+get_mvpaplots(lo)
 
 %% Classification
 
