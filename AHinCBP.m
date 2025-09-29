@@ -2,7 +2,7 @@
 
 
 % Author: Alina Panzel
-% Last Date of Changes: 23.09.2025
+% Last Date of Changes: 29.09.2025
 
 %% Load Data & Atlases
 
@@ -43,7 +43,7 @@ behavioral_longitudinal = get_behavioral_longitudinal(d);
 % --- AUDIO (Sound) Ratings ---
 
 % Subset only sound trials (Low/High)
-AA = behavioral_baseline(behavioral_baseline.Modality=="Sound", :);
+AA = behavioral_baseline(behavioral_baseline.Modality== "Sound", :);
 
 % Remove outliers on Rating
 [~, idxOut] = rmoutliers(AA.Rating);
@@ -116,6 +116,7 @@ plot_figures(d, [1 2 3 4], 'Unpleasantness Ratings','behavioral', yLimit, 1, fal
 
 
 % -------- Behavioural Correlations ----------
+
 
 
 
@@ -409,6 +410,10 @@ print_effectsizes(T_pressure, 'MVPA (Pressure)');
 get_mvpaplots(lo)
 
 %% Classification
+
+
+%% Brain - Behavioural Correlations
+
 
 
 %% Exploratory Whole Brain Grey Matter Voxelwise Analysis
