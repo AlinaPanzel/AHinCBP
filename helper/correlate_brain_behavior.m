@@ -65,6 +65,34 @@ elseif strcmpi(correlation, 'brain_unpleasanteness')
     fields  = {'all_s_l','all_s_h'};           % low/high
     rowNames = {'clbp_s_l','clbp_s_h'};        % to label rows in the table
 
+    clear p_value;clear pval;clear rho;clear Rho;clear Rho_hc; clear p_value_hc;
+    area = {'dorsal_insula' 'posterior_insula' 'A1' 'mPFC', 'precuneus'};
+    Condition = ["Sound_low";"Sound_high"];
+    stimtype = {'acute_mean_sound_lo' 'acute_mean_sound_hi'};
+
+    for n = 1: numel(area)
+        %figure("Name",(area{n}))
+        for i = 1:2
+            j = i + 2;
+            X = d.CLBP_metadata.(stimtype{i});
+            Y = roi.(area{n}).(fields{j});
+            [rho,pval] = corr(X,Y,'Rows','complete', 'type','Pearson');
+            p_value(i,:) = pval;
+            Rho(i,:) = rho;
+            
+            p = j + 6;
+            X_hc = d.HC_metadata.(stimtype{i});
+            Y_hc = roi.(area{n}).(fields{p});
+            [rho,pval] = corr(X_hc,Y_hc,'Rows','complete', 'type','Pearson');
+            p_value_hc(i,:) = pval;
+            Rho_hc(i,:) = rho;
+
+        end
+         
+            table.corr.stim_pain.(area{n}).clbp =  table(Condition, p_value, adj_p, Rho);
+            table.corr.stim_pain.(area{n}).hc   =  table(Condition, p_value_hc,adj_p_hc, Rho_hc);
+
+    end
     results = struct();
 
     for n = 1:numel(area)

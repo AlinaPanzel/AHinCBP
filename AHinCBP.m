@@ -2,9 +2,10 @@
 
 
 % Author: Alina Panzel
-% Last Date of Changes: 29.09.2025
+% Last Date of Changes: 03.12.2025
 
 %% Load Data & Atlases
+
 
 % clean
 clc;
@@ -113,6 +114,14 @@ yLimit = [-10 110];
 
 % Plot data for different regions
 plot_figures(d, [1 2 3 4], 'Unpleasantness Ratings','behavioral', yLimit, 1, false);
+
+
+% -------- VAS Characteristics ---------
+
+% Sort & retrieve means and variance of spontaneous pain and unpleasantness
+% ratings
+baseline_ratings = get_rating_characteristics(d);
+
 
 
 % -------- Behavioural Correlations ----------
@@ -409,13 +418,101 @@ print_effectsizes(T_pressure, 'MVPA (Pressure)');
 
 get_mvpaplots(lo)
 
+%% Neural Baseline Plot Statistics (with significance stars)
+
+T = neural_baseline_clean;
+
+% Ensure text columns are string/categorical for robust handling
+for vn = ["group","measure","modality","intensity"]
+    if ~iscategorical(T.(vn))
+        T.(vn) = categorical(string(T.(vn)));
+    end
+end
+
+% Explicitly set intensity order: Low before High
+if ismember('Low', categories(T.intensity)) && ismember('High', categories(T.intensity))
+    T.intensity = reordercats(T.intensity, {'Low','High'});
+end
+
+% Define combinations
+allCombos = unique(T(:, {'measure','modality','intensity'}));
+
+% Prepare results table
+Results = table( ...
+    strings(0,1), strings(0,1), strings(0,1), ...
+    zeros(0,1), zeros(0,1), zeros(0,1), ...
+    zeros(0,1), zeros(0,1), zeros(0,1), ...
+    NaN(0,1), NaN(0,1), NaN(0,1), strings(0,1), ...
+    'VariableNames', { ...
+        'measure','modality','intensity', ...
+        'n_CBP','mean_CBP','sd_CBP', ...
+        'n_HC','mean_HC','sd_HC', ...
+        'tstat','df','pval','sigStars'});
+
+for i = 1:height(allCombos)
+    m  = allCombos.measure(i);
+    mo = allCombos.modality(i);
+    in = allCombos.intensity(i);
+
+    % Slice data for this combo
+    rows = T.measure == m & T.modality == mo & T.intensity == in;
+
+    x = T.value(rows & T.group == 'CBP');
+    y = T.value(rows & T.group == 'HC');
+
+    % Skip if one group missing or too few obs
+    if numel(x) < 2 || numel(y) < 2
+        continue
+    end
+
+    % Descriptive stats
+    nC = numel(x);  nH = numel(y);
+    mC = mean(x);   mH = mean(y);
+    sC = std(x, 0); sH = std(y, 0);
+
+    % Welch’s t-test (unequal variances)
+    [~, p, ~, stats] = ttest2(x, y, 'Vartype', 'unequal');
+
+    % Round
+    mC = round(mC, 2);
+    mH = round(mH, 2);
+    sC = round(sC, 2);
+    sH = round(sH, 2);
+    tval = round(stats.tstat, 2);
+    df   = round(stats.df, 2);
+    p    = round(p, 3);
+
+    % --- Significance stars ---
+    if p < 0.001
+        stars = "***";
+    elseif p < 0.01
+        stars = "**";
+    elseif p < 0.05
+        stars = "*";
+    else
+        stars = "";
+    end
+
+    % Append to results
+    Results = [Results; {
+        string(m), string(mo), string(in), ...
+        nC, mC, sC, ...
+        nH, mH, sH, ...
+        tval, df, p, string(stars)}];
+end
+
+% Sort with "Low" before "High"
+Results.intensity = categorical(Results.intensity, {'Low','High'}, 'Ordinal', true);
+Results = sortrows(Results, {'measure','modality','intensity'});
+
+% Display
+disp(Results)
+
+% Optional: save to file
+% writetable(Results, 'ttest_results_with_stars.csv');
+
 %% Classification
-
-
 %% Brain - Behavioural Correlations
-
-
-
 %% Exploratory Whole Brain Grey Matter Voxelwise Analysis
 
 conds = {'all_s_l','all_s_h','all_t_l','all_t_h'};   % Sound Low/High, Pressure Low/High
@@ -504,7 +601,7 @@ for k = 1:numel(measures)
     Tk = T(T.measure == m, :);
 
     % Make sure predictors are categorical/numeric as needed
-    Tk.group     = categorical(Tk.group);
+    Tk.group     = categorical(Tk.group); 
     Tk.timepoint = double(Tk.timepoint);   % 1=baseline, 2=post
     Tk.intensity = double(Tk.intensity);   % 1=low, 2=high
 
@@ -547,3 +644,11 @@ disp(Rprint);
 
 
 
+%% Predict treatment changes
+
+% Behavioral
+predict_treatment_changes(behavioral_longitudinal,d)
+% Neural
+predict_treatment_changes_neural(neural_longitudinal_sound, d)
+
+% OUtcome: 
