@@ -58,47 +58,36 @@ disp(summaryTable);
 
 baseline_ratings = summaryTable;
 
+%% === CORRELATIONS (6 x 6) ===
 
+% Extract variables
+sp_mean   = summaryTable.spon_mean;
+sp_var    = summaryTable.spon_var;
+sound_low = summaryTable.sound_low_mean;
+sound_high = summaryTable.sound_high_mean;
+press_low  = summaryTable.press_low_mean;
+press_high = summaryTable.press_high_mean;
 
-% Extract variables from the summaryTable
-sp_mean = summaryTable.spon_mean;
-sp_var  = summaryTable.spon_var;
+% All variables in one matrix (columns = variables)
+allVars = [sp_mean, sp_var, sound_low, sound_high, press_low, press_high];
 
-sound_low    = summaryTable.sound_low_mean;
-sound_high   = summaryTable.sound_high_mean;
-press_low    = summaryTable.press_low_mean;
-press_high   = summaryTable.press_high_mean;
+% Names in same order as columns
+allNames = {'Spont Mean', 'Spont Var', ...
+            'Sound Low', 'Sound High', ...
+            'Press Low', 'Press High'};
 
-% Compute correlations (Pearson)
-[r_spmean_sound_low,    p_spmean_sound_low]    = corr(sp_mean, sound_low,  'rows','pairwise');
-[r_spmean_sound_high,   p_spmean_sound_high]   = corr(sp_mean, sound_high, 'rows','pairwise');
-[r_spmean_press_low,    p_spmean_press_low]    = corr(sp_mean, press_low,  'rows','pairwise');
-[r_spmean_press_high,   p_spmean_press_high]   = corr(sp_mean, press_high, 'rows','pairwise');
+% Full 6x6 correlation and p-value matrices
+[R, P] = corr(allVars, 'rows', 'pairwise');
 
-[r_spvar_sound_low,     p_spvar_sound_low]     = corr(sp_var, sound_low,  'rows','pairwise');
-[r_spvar_sound_high,    p_spvar_sound_high]    = corr(sp_var, sound_high, 'rows','pairwise');
-[r_spvar_press_low,     p_spvar_press_low]     = corr(sp_var, press_low,  'rows','pairwise');
-[r_spvar_press_high,    p_spvar_press_high]    = corr(sp_var, press_high, 'rows','pairwise');
+%% === PRINT RESULTS (optional) ===
+fprintf('\n=== FULL 6x6 CORRELATION MATRIX ===\n');
+disp(array2table(R, 'VariableNames', allNames, 'RowNames', allNames));
 
-% Print results to command window
-fprintf('\n=== CORRELATIONS (Reviewer I) ===\n');
-fprintf('Spont pain MEAN  vs Sound Low :   r = %.2f, p = %.3f\n', r_spmean_sound_low,  p_spmean_sound_low);
-fprintf('Spont pain MEAN  vs Sound High:   r = %.2f, p = %.3f\n', r_spmean_sound_high, p_spmean_sound_high);
-fprintf('Spont pain MEAN  vs Press Low :   r = %.2f, p = %.3f\n', r_spmean_press_low,  p_spmean_press_low);
-fprintf('Spont pain MEAN  vs Press High:   r = %.2f, p = %.3f\n', r_spmean_press_high, p_spmean_press_high);
-
-fprintf('Spont pain VAR   vs Sound Low :   r = %.2f, p = %.3f\n', r_spvar_sound_low,  p_spvar_sound_low);
-fprintf('Spont pain VAR   vs Sound High:   r = %.2f, p = %.3f\n', r_spvar_sound_high, p_spvar_sound_high);
-fprintf('Spont pain VAR   vs Press Low :   r = %.2f, p = %.3f\n', r_spvar_press_low,  p_spvar_press_low);
-fprintf('Spont pain VAR   vs Press High:   r = %.2f, p = %.3f\n', r_spvar_press_high, p_spvar_press_high);
-
-
+% Round full correlation matrix BEFORE plotting or labeling
+R_rounded = round(R, 2);
 
 
 %% === HEATMAP (6 x 6) ===
-
- % Round full correlation matrix BEFORE plotting or labeling
-R_rounded = round(R, 2);
 
 figure;
 
@@ -126,19 +115,46 @@ ax = gca;
 ax.XAxis.FontWeight = 'bold';
 ax.YAxis.FontWeight = 'bold';
 
-% Significance stars added on top of already rounded data
-labels = strings(size(R_rounded));
-for r = 1:size(R_rounded,1)
-    for c = 1:size(R_rounded,2)
-        if P(r,c) < 0.05
-            labels(r,c) = sprintf('%.2f*', R_rounded(r,c));
-        else
-            labels(r,c) = sprintf('%.2f', R_rounded(r,c));
+% === CUSTOM CELL LABELS WITH BOLD FOR SIGNIFICANT CORRELATIONS ===
+
+% Turn off built-in labels (we'll draw them manually)
+h.CellLabelColor = 'none';
+
+% Access the underlying axes of the heatmap
+sh = struct(h);
+ax = sh.Axes;
+
+n = size(R_rounded, 1);
+
+for r = 1:n
+    for c = 1:n
+
+        val = R_rounded(r,c);
+        if isnan(val)
+            continue; % skip NaNs
         end
+
+        if P(r,c) < 0.05
+            txt = sprintf('%.2f*', val);
+            fw  = 'bold';    % significant = bold
+        else
+            txt = sprintf('%.2f', val);
+            fw  = 'normal';  % non-significant = normal
+        end
+
+        % Draw text in the heatmap axes
+        text(ax, c, r, txt, ...
+            'HorizontalAlignment','center', ...
+            'VerticalAlignment','middle', ...
+            'FontWeight', fw, ...
+            'FontSize', 11, ...
+            'Color','k');
     end
 end
 
+
 h.CellLabelFormat = '%s';
 h.CellLabelData   = labels;
+
 
 end 
