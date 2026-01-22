@@ -1,4 +1,4 @@
-function [results, models] = analyze_neural_longitudinal_treatment(neural_longitudinal_sound)
+function [results, models] = analyze_neural_longitudinal_sound(neural_longitudinal_sound)
 % Fit & test treatment effects with LMM (random slopes & intercepts)
 % Model: value ~ group*timepoint + intensity + (1 + timepoint | subID)
 % Reports: PRT vs Placebo and PRT vs UC contrasts with b, 95% CI, p-values
@@ -19,13 +19,12 @@ T.group = reordercats(T.group, {'PRT', 'Placebo', 'UC'});
 measures = categories(T.measure);
 
 % ---- Preallocate results table ----
-results = table('Size', [0, 12], ...
+results = table('Size', [0, 10], ...
     'VariableTypes', {'string', 'double', 'double', 'double', 'double', 'double', ...
-                      'double', 'double', 'double', 'double', 'double', 'double'}, ...
+                      'double', 'double', 'double', 'double'}, ...
     'VariableNames', {'Measure', 'NumObs', ...
                       'b_PRTvsPlacebo', 'CI_lo_Placebo', 'CI_hi_Placebo', 'p_PRTvsPlacebo', ...
-                      'b_PRTvsUC', 'CI_lo_UC', 'CI_hi_UC', 'p_PRTvsUC', ...
-                      'F_joint', 'p_joint'});
+                      'b_PRTvsUC', 'CI_lo_UC', 'CI_hi_UC', 'p_PRTvsUC'});
 
 models = struct('measure', {}, 'lme', {});
 
@@ -73,21 +72,10 @@ for k = 1:numel(measures)
         b_UC = NaN; ci_lo_UC = NaN; ci_hi_UC = NaN; p_UC = NaN;
     end
     
-    % ---- Joint F-test of group × timepoint ----
-    J = find(contains(coefNames, "group") & contains(coefNames, "timepoint"));
-    if ~isempty(J)
-        L = zeros(numel(J), numel(coefNames));
-        for i = 1:numel(J), L(i, J(i)) = 1; end
-        [p_joint, F_joint, ~, ~] = coefTest(lme, L);
-    else
-        F_joint = NaN; p_joint = NaN;
-    end
-    
     % ---- Store results ----
     results = [results; {string(m), height(Tk), ...
                          b_Placebo, ci_lo_Placebo, ci_hi_Placebo, p_Placebo, ...
-                         b_UC, ci_lo_UC, ci_hi_UC, p_UC, ...
-                         F_joint, p_joint}];
+                         b_UC, ci_lo_UC, ci_hi_UC, p_UC}];
     
     models(end+1).measure = string(m);
     models(end).lme = lme;
