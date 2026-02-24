@@ -2,7 +2,7 @@
 
 
 % Author: Alina Panzel
-% Last Date of Changes: 03.12.2025
+% Last Date of Changes: 23.02.2026
 
 %% Load Data & Atlases
 
@@ -102,17 +102,10 @@ fprintf('Pressure: Intensity×Group  F(%d, %.2f)=%.2f, p=%.4g\n', DF1, DF2, F, p
 
 % -------- Plot Unpleasantness -----------
 
-% Set up the figure
-hf = figure; % Open figure and keep handle
-hf = colordef(hf, 'white'); % Set color scheme
-hf.Color = 'w'; % Set background color of figure window
-%sgt = sgtitle("Unisensory Auditory");
-%sgt.FontSize = 38;
-
 % Define y-limits for the plots
 yLimit = [-10 110];
 
-% Plot data for different regions
+% Plot data for different regions (figure created inside plot_figures)
 plot_figures(d, [1 2 3 4], 'Unpleasantness Ratings','behavioral', yLimit, 1, false);
 
 
@@ -126,7 +119,77 @@ baseline_ratings = get_rating_characteristics(d);
 
 % -------- Behavioural Correlations ----------
 
+% --- Back Pain (BPI-SF) vs. Auditory Unpleasantness (CBP only) ---
 
+% Subset CBP patients at baseline with auditory ratings
+M = d.metadata;
+M = M(M.time == 1, :);                           % baseline only
+isCBP = ismember(M.group, [1 2 3]);
+M_cbp = M(isCBP, :);
+
+fprintf('\n==== BACK PAIN vs. AUDITORY UNPLEASANTNESS (CBP only) ====\n');
+
+% Low intensity sound
+valid = ~isnan(M_cbp.pain_avg) & ~isnan(M_cbp.acute_mean_sound_lo);
+x = M_cbp.pain_avg(valid);
+y = M_cbp.acute_mean_sound_lo(valid);
+[r, p] = corr(x, y);
+fprintf('Sound Low:  r(%d) = %.2f, p = %.3g%s\n', numel(x)-2, r, p, pstars(p));
+
+% High intensity sound
+valid = ~isnan(M_cbp.pain_avg) & ~isnan(M_cbp.acute_mean_sound_hi);
+x = M_cbp.pain_avg(valid);
+y = M_cbp.acute_mean_sound_hi(valid);
+[r, p] = corr(x, y);
+fprintf('Sound High: r(%d) = %.2f, p = %.3g%s\n', numel(x)-2, r, p, pstars(p));
+
+
+% --- Spontaneous Pain vs. Task-Evoked Unpleasantness (CBP only) ---
+
+fprintf('\n==== SPONTANEOUS PAIN vs. TASK-EVOKED UNPLEASANTNESS (CBP only) ====\n');
+
+% Compute spontaneous pain variance from raw ratings where available
+if ismember('spon_pain_ratings', M_cbp.Properties.VariableNames)
+    spon_var = nan(height(M_cbp),1);
+    for si = 1:height(M_cbp)
+        ratings_i = M_cbp.spon_pain_ratings(si,:);
+        if any(~isnan(ratings_i))
+            spon_var(si) = nanvar(ratings_i);
+        end
+    end
+    M_cbp.spon_pain_var = spon_var;
+end
+
+% Four conditions: sound_lo, sound_hi, pressure_lo, pressure_hi
+condLabels = {'Sound Low','Sound High','Pressure Low','Pressure High'};
+condVars   = {'acute_mean_sound_lo','acute_mean_sound_hi', ...
+              'acute_mean_thumb_lo','acute_mean_thumb_hi'};
+
+fprintf('\n--- Mean spontaneous pain ---\n');
+fprintf('%-16s %8s %10s %6s\n', 'Condition','r','p','');
+fprintf('%s\n', repmat('-',1,44));
+
+for ci = 1:numel(condVars)
+    valid = ~isnan(M_cbp.spon_pain_rating_mean) & ~isnan(M_cbp.(condVars{ci}));
+    x = M_cbp.spon_pain_rating_mean(valid);
+    y = M_cbp.(condVars{ci})(valid);
+    [r, p] = corr(x, y);
+    fprintf('%-16s %8.2f %10.3g %6s\n', condLabels{ci}, r, p, pstars(p));
+end
+
+if ismember('spon_pain_var', M_cbp.Properties.VariableNames)
+    fprintf('\n--- Variance of spontaneous pain ---\n');
+    fprintf('%-16s %8s %10s %6s\n', 'Condition','r','p','');
+    fprintf('%s\n', repmat('-',1,44));
+
+    for ci = 1:numel(condVars)
+        valid = ~isnan(M_cbp.spon_pain_var) & ~isnan(M_cbp.(condVars{ci}));
+        x = M_cbp.spon_pain_var(valid);
+        y = M_cbp.(condVars{ci})(valid);
+        [r, p] = corr(x, y);
+        fprintf('%-16s %8.2f %10.3g %6s\n', condLabels{ci}, r, p, pstars(p));
+    end
+end
 
 
 
@@ -138,7 +201,7 @@ saveas(f1, fullfile('figures','auditory_treatmenteffects_collapsed.png'));
 exportgraphics(f1, fullfile('figures','auditory_treatmenteffects_collapsed.png'), ...
     'Resolution',300);
 
-f2 = plot_auditory_treatmenteffects_byIntensity(d);
+plot_auditory_treatmenteffects_byIntensity(d);
 
 
 
@@ -169,8 +232,8 @@ fprintf('%-16s | %4s %4s | %8s %8s | %8s %8s | %10s\n', ...
     'ROI','nHC','nCBP','HC_Low','HC_High','CBP_Low','CBP_High','Group T [DF] (p)');
 fprintf('%s\n', repmat('-',1,90));
 
-res_sound = table(string.empty, zeros(0,1), nan(0,1), nan(0,1), nan(0,1), nan(0,1), ...
-    'VariableNames', {'ROI','N','T_group','df1','df2','p_group'});
+res_sound = table(string.empty, zeros(0,1), nan(0,1), nan(0,1), nan(0,1), ...
+    'VariableNames', {'ROI','N','T_group','DF','p_group'});
 
 dropmvpa = {'general','sound','mechanical','FM_PAIN','FM_MSS'};
 
@@ -216,7 +279,7 @@ for i = 1:numel(allROIs)
         R, nHC, nCBP, hcL, hcH, cbL, cbH, t, df, p, pstars(double(p)));
 
 
-    res_sound = [res_sound; {string(R), height(Tk), T, DF1, DF2, p}];
+    res_sound = [res_sound; {string(R), height(Tk), t, df, p}];
 end
 
 print_effectsizes(neural_baseline_roi_sound, 'ROI (Sound)');
@@ -231,8 +294,8 @@ fprintf('%s\n', repmat('-',1,90));
 
 dropmvpa = {'general','sound','mechanical','FM_PAIN','FM_MSS'};
 
-res_pressure = table(string.empty, zeros(0,1), nan(0,1), nan(0,1), nan(0,1), nan(0,1), ...
-    'VariableNames', {'ROI','N','T_group','df1','df2','p_group'});
+res_pressure = table(string.empty, zeros(0,1), nan(0,1), nan(0,1), nan(0,1), ...
+    'VariableNames', {'ROI','N','T_group','DF','p_group'});
 
 neural_baseline_roi_pressure = neural_baseline_clean( ...
     neural_baseline_clean.modality == "Pressure" & ...
@@ -272,7 +335,7 @@ for i = 1:numel(allROIs)
    
     fprintf('%-16s | %4d %4d | %8.2f %8.2f | %8.2f %8.2f | %6.2f [%3.2f] (%.3g)%s\n', ...
         R, nHC, nCBP, hcL, hcH, cbL, cbH, t, df, p, pstars(double(p)));
-    res_pressure = [res_pressure; {string(R), height(Tk), T, DF1, DF2, p}];
+    res_pressure = [res_pressure; {string(R), height(Tk), t, df, p}];
 end
 
 print_effectsizes(neural_baseline_roi_pressure, 'ROI (PRESSURE)');
@@ -417,6 +480,153 @@ print_effectsizes(T_pressure, 'MVPA (Pressure)');
 
 get_mvpaplots(lo)
 
+
+%% ROI Supplementary: Intensity Encoding (Tables S2.1, S2.2)
+
+% Paired t-tests: Low vs. High intensity within each ROI and modality,
+% separately for CBP and Controls
+
+dropmvpa = {'general','sound','mechanical','FM_PAIN','FM_MSS'};
+nb_roi = neural_baseline_clean(~ismember(neural_baseline_clean.measure, dropmvpa), :);
+allROIs_supp = cellstr(unique(nb_roi.measure));
+
+for grp = {'CBP','HC'}
+    grpStr = grp{1};
+    fprintf('\n==== INTENSITY ENCODING: %s (Tables S2.1/S2.2) ====\n', grpStr);
+    fprintf('%-16s | %-10s | %6s %6s | %8s %8s | %8s %8s %10s %6s\n', ...
+        'ROI','Modality','nLow','nHigh','M_Low','M_High','g','p','q(BH)','');
+    fprintf('%s\n', repmat('-',1,100));
+
+    % Collect p-values for FDR across all ROI×Modality within this group
+    pvals = [];
+    testInfo = {};
+
+    for mod = {'Sound','Pressure'}
+        modStr = mod{1};
+        for ri = 1:numel(allROIs_supp)
+            R = allROIs_supp{ri};
+
+            Tk = nb_roi(nb_roi.measure==R & nb_roi.modality==modStr & nb_roi.group==grpStr, :);
+            if isempty(Tk), continue; end
+
+            % Get paired data: match subjects across Low and High
+            T_lo = Tk(Tk.intensity=="Low", {'subID','value'});
+            T_hi = Tk(Tk.intensity=="High", {'subID','value'});
+            [~, ia, ib] = intersect(T_lo.subID, T_hi.subID);
+
+            xLo = T_lo.value(ia);
+            xHi = T_hi.value(ib);
+
+            % Remove pairs with NaN
+            valid = ~isnan(xLo) & ~isnan(xHi);
+            xLo = xLo(valid);  xHi = xHi(valid);
+
+            if numel(xLo) < 3
+                pvals(end+1) = NaN;
+                testInfo{end+1} = {R, modStr, numel(xLo), numel(xHi), NaN, NaN, NaN, NaN};
+                continue;
+            end
+
+            [~,p_tt] = ttest(xLo, xHi);
+            ef = mes(xLo, xHi, 'hedgesg');
+
+            pvals(end+1) = p_tt;
+            testInfo{end+1} = {R, modStr, numel(xLo), numel(xHi), ...
+                mean(xLo,'omitnan'), mean(xHi,'omitnan'), ef.hedgesg, p_tt};
+        end
+    end
+
+    % FDR correction (Benjamini-Hochberg) across all tests within this group
+    qvals = nan(size(pvals));
+    keep = ~isnan(pvals);
+    if any(keep), [~,~,~,qvals(keep)] = fdr_bh(pvals(keep)); end
+
+    % Print
+    for ti = 1:numel(testInfo)
+        info = testInfo{ti};
+        if isnan(info{7})
+            fprintf('%-16s | %-10s | %6d %6d | %8s %8s | %8s %8s %10s %6s\n', ...
+                info{1}, info{2}, info{3}, info{4}, 'NA','NA','NA','NA','NA','');
+        else
+            fprintf('%-16s | %-10s | %6d %6d | %8.2f %8.2f | %+8.2f %8.3g %10.3g %6s\n', ...
+                info{1}, info{2}, info{3}, info{4}, info{5}, info{6}, ...
+                info{7}, info{8}, qvals(ti), pstars(qvals(ti)));
+        end
+    end
+end
+
+
+%% ROI Supplementary: Modality Specificity (Tables S2.3, S2.4)
+
+% Paired t-tests: Sound vs. Pressure within each ROI and intensity level,
+% separately for CBP and Controls
+
+for grp = {'CBP','HC'}
+    grpStr = grp{1};
+    fprintf('\n==== MODALITY SPECIFICITY: %s (Tables S2.3/S2.4) ====\n', grpStr);
+    fprintf('%-16s | %-10s | %6s %6s | %8s %8s | %8s %8s %10s %6s\n', ...
+        'ROI','Intensity','nSnd','nPrs','M_Sound','M_Press','g','p','q(BH)','');
+    fprintf('%s\n', repmat('-',1,100));
+
+    % Collect p-values for FDR across all ROI×Intensity within this group
+    pvals = [];
+    testInfo = {};
+
+    for intLev = {'Low','High'}
+        intStr = intLev{1};
+        for ri = 1:numel(allROIs_supp)
+            R = allROIs_supp{ri};
+
+            Tk = nb_roi(nb_roi.measure==R & nb_roi.intensity==intStr & nb_roi.group==grpStr, :);
+            if isempty(Tk), continue; end
+
+            % Get paired data: match subjects across Sound and Pressure
+            T_snd = Tk(Tk.modality=="Sound", {'subID','value'});
+            T_prs = Tk(Tk.modality=="Pressure", {'subID','value'});
+            [~, ia, ib] = intersect(T_snd.subID, T_prs.subID);
+
+            xSnd = T_snd.value(ia);
+            xPrs = T_prs.value(ib);
+
+            % Remove pairs with NaN
+            valid = ~isnan(xSnd) & ~isnan(xPrs);
+            xSnd = xSnd(valid);  xPrs = xPrs(valid);
+
+            if numel(xSnd) < 3
+                pvals(end+1) = NaN;
+                testInfo{end+1} = {R, intStr, numel(xSnd), numel(xPrs), NaN, NaN, NaN, NaN};
+                continue;
+            end
+
+            [~,p_tt] = ttest(xSnd, xPrs);
+            ef = mes(xSnd, xPrs, 'hedgesg');
+
+            pvals(end+1) = p_tt;
+            testInfo{end+1} = {R, intStr, numel(xSnd), numel(xPrs), ...
+                mean(xSnd,'omitnan'), mean(xPrs,'omitnan'), ef.hedgesg, p_tt};
+        end
+    end
+
+    % FDR correction (Benjamini-Hochberg) across all tests within this group
+    qvals = nan(size(pvals));
+    keep = ~isnan(pvals);
+    if any(keep), [~,~,~,qvals(keep)] = fdr_bh(pvals(keep)); end
+
+    % Print
+    for ti = 1:numel(testInfo)
+        info = testInfo{ti};
+        if isnan(info{7})
+            fprintf('%-16s | %-10s | %6d %6d | %8s %8s | %8s %8s %10s %6s\n', ...
+                info{1}, info{2}, info{3}, info{4}, 'NA','NA','NA','NA','NA','');
+        else
+            fprintf('%-16s | %-10s | %6d %6d | %8.2f %8.2f | %+8.2f %8.3g %10.3g %6s\n', ...
+                info{1}, info{2}, info{3}, info{4}, info{5}, info{6}, ...
+                info{7}, info{8}, qvals(ti), pstars(qvals(ti)));
+        end
+    end
+end
+
+
 %% Neural Baseline Plot Statistics (with significance stars)
 
 T = neural_baseline_clean;
@@ -510,10 +720,208 @@ disp(Results)
 % Optional: save to file
 % writetable(Results, 'ttest_results_with_stars.csv');
 
-%% Classification
 %% Brain - Behavioural Correlations
 
-results = correlate_brain_behavior(d, lo, correlation);
+fprintf('\n==== BRAIN-BEHAVIOR CORRELATIONS ====\n');
+
+% Subset metadata for matching
+M = d.metadata;
+M = M(M.time == 1, :);                           % baseline only
+isCBP = ismember(M.group, [1 2 3]);
+M_cbp = M(isCBP, :);
+
+% -- A1 vs. auditory unpleasantness (separate by group and intensity) --
+fprintf('\n--- A1 vs. Auditory Unpleasantness ---\n');
+fprintf('%-8s %-6s %8s %10s %6s\n', 'Group','Int','r','p','');
+fprintf('%s\n', repmat('-',1,40));
+
+for grp = {'HC','CBP'}
+    grpStr = grp{1};
+    if strcmp(grpStr,'HC')
+        grpMask = ~isCBP;
+    else
+        grpMask = isCBP;
+    end
+    Mg = M(grpMask, :);
+
+    % merge with A1 neural values
+    for intPair = {{'Low','acute_mean_sound_lo','all_s_l'}, ...
+                   {'High','acute_mean_sound_hi','all_s_h'}}
+        ip = intPair{1};
+        intLabel = ip{1}; behVar = ip{2}; neuField = ip{3};
+
+        % Get A1 values for this group at baseline
+        if strcmp(grpStr,'HC')
+            a1_vals = lo.roi.HC.S1.A1.(neuField);
+            ids_neural = d.HC.S1.id;
+        else
+            a1_vals = [lo.roi.G1.S1.A1.(neuField); lo.roi.G2.S1.A1.(neuField); lo.roi.G3.S1.A1.(neuField)];
+            ids_neural = [d.G1.S1.id; d.G2.S1.id; d.G3.S1.id];
+        end
+
+        % Match by ID
+        [~, ia, ib] = intersect(Mg.id, ids_neural);
+        beh = Mg.(behVar)(ia);
+        neu = a1_vals(ib);
+        valid = ~isnan(beh) & ~isnan(neu);
+        [r, p] = corr(beh(valid), neu(valid));
+        fprintf('%-8s %-6s %8.2f %10.3g %6s\n', grpStr, intLabel, r, p, pstars(p));
+    end
+end
+
+% -- mPFC vs. spontaneous pain (CBP only, low sound) --
+fprintf('\n--- mPFC (Low Sound) vs. Spontaneous Pain (CBP only) ---\n');
+
+mpfc_vals = [lo.roi.G1.S1.mPFC.all_s_l; lo.roi.G2.S1.mPFC.all_s_l; lo.roi.G3.S1.mPFC.all_s_l];
+ids_neural = [d.G1.S1.id; d.G2.S1.id; d.G3.S1.id];
+
+[~, ia, ib] = intersect(M_cbp.id, ids_neural);
+beh = M_cbp.spon_pain_rating_mean(ia);
+neu = mpfc_vals(ib);
+valid = ~isnan(beh) & ~isnan(neu);
+[r, p] = corr(beh(valid), neu(valid));
+fprintf('  r(%d) = %.2f, p = %.3g%s\n', sum(valid)-2, r, p, pstars(p));
+
+% -- Dorsal Insula vs. last-week back pain (CBP only, low sound) --
+fprintf('\n--- Dorsal Insula (Low Sound) vs. Last-Week Pain (CBP only) ---\n');
+
+dins_vals = [lo.roi.G1.S1.m_dorsal_insula.all_s_l; lo.roi.G2.S1.m_dorsal_insula.all_s_l; lo.roi.G3.S1.m_dorsal_insula.all_s_l];
+
+[~, ia, ib] = intersect(M_cbp.id, ids_neural);
+beh = M_cbp.pain_avg(ia);
+neu = dins_vals(ib);
+valid = ~isnan(beh) & ~isnan(neu);
+[r, p] = corr(beh(valid), neu(valid));
+fprintf('  r(%d) = %.2f, p = %.3g%s\n', sum(valid)-2, r, p, pstars(p));
+
+
+%% Classification
+
+% LASSO-regularized logistic regression with PCA (95% variance) and SMOTE
+% 10-fold stratified cross-validation, 1000 iterations
+% Three classifiers: behavioral, neural, combined
+
+nIter  = 1000;
+nFolds = 10;
+rng(42);        % reproducibility
+
+% ---- Prepare feature matrices ----
+
+% Behavioral features: unpleasantness ratings for all 4 conditions (wide)
+M = d.metadata;
+M = M(M.time == 1, :);                       % baseline only
+isCBP = ismember(M.group, [1 2 3]);
+
+X_beh = [M.acute_mean_sound_lo, M.acute_mean_sound_hi, ...
+         M.acute_mean_thumb_lo, M.acute_mean_thumb_hi];
+y_class = double(isCBP);                     % 1 = CBP, 0 = HC
+
+% Neural features: all ROI averages + MVPA pattern expressions for low sound
+% Pivot neural_baseline_clean to wide (one row per subject, low sound only)
+nb = neural_baseline_clean(neural_baseline_clean.modality=="Sound" & ...
+     neural_baseline_clean.intensity=="Low", :);
+nb_wide = unstack(nb(:,{'subID','measure','value'}), 'value', 'measure');
+nb_wide = sortrows(nb_wide, 'subID');
+
+% Align neural features with behavioral features by subject ID
+[~, ia, ib] = intersect(M.id, nb_wide.subID);
+X_beh_aligned  = X_beh(ia, :);
+X_neur_aligned = table2array(nb_wide(ib, 2:end));    % drop subID column
+y_aligned      = y_class(ia);
+
+% Combined
+X_comb = [X_beh_aligned, X_neur_aligned];
+
+% ---- Run classifiers ----
+
+classifiers = {'Behavioral','Neural','Combined'};
+X_all = {X_beh_aligned, X_neur_aligned, X_comb};
+
+fprintf('\n==== CLASSIFICATION: CBP vs. CONTROLS ====\n');
+fprintf('%-12s | %8s ± %5s | %8s ± %5s | %8s ± %5s\n', ...
+    'Classifier','AUC','sd','Sens','sd','Spec','sd');
+fprintf('%s\n', repmat('-',1,72));
+
+for ci = 1:numel(classifiers)
+    Xraw = X_all{ci};
+    yraw = y_aligned;
+
+    % Drop rows with any NaN
+    valid = all(~isnan(Xraw),2) & ~isnan(yraw);
+    Xv = Xraw(valid,:);
+    yv = yraw(valid);
+
+    aucs  = nan(nIter,1);
+    senss = nan(nIter,1);
+    specs = nan(nIter,1);
+
+    for it = 1:nIter
+        cv = cvpartition(yv, 'KFold', nFolds, 'Stratify', true);
+
+        y_pred_prob = nan(size(yv));
+        y_pred_lab  = nan(size(yv));
+
+        for f = 1:nFolds
+            trn = training(cv, f);
+            tst = test(cv, f);
+
+            Xtrn = Xv(trn,:);  ytrn = yv(trn);
+            Xtst = Xv(tst,:);
+
+            % SMOTE: oversample minority class in training set
+            nMin = sum(ytrn==0);  nMaj = sum(ytrn==1);
+            if nMin < nMaj
+                idxMin = find(ytrn==0);
+                nSyn = nMaj - nMin;
+                synIdx = idxMin(randi(nMin, nSyn, 1));
+                % add small jitter to synthetic samples
+                noise = 0.05 * randn(nSyn, size(Xtrn,2)) .* std(Xtrn(idxMin,:),[],1);
+                Xtrn = [Xtrn; Xtrn(synIdx,:) + noise];
+                ytrn = [ytrn; zeros(nSyn,1)];
+            end
+
+            % PCA: retain 95% variance
+            [coeff, score, ~, ~, explained] = pca(Xtrn, 'Centered',true);
+            cumVar = cumsum(explained);
+            nComp  = find(cumVar >= 95, 1, 'first');
+            if isempty(nComp), nComp = size(score,2); end
+
+            Xtrn_pca = score(:, 1:nComp);
+            mu = mean(Xtrn,1);
+            Xtst_pca = (Xtst - mu) * coeff(:, 1:nComp);
+
+            % LASSO logistic regression
+            [B, FitInfo] = lassoglm(Xtrn_pca, ytrn, 'binomial', ...
+                'Alpha',1, 'NumLambda',50, 'CV',5);
+
+            % Pick lambda with minimum deviance
+            idxLam = FitInfo.IndexMinDeviance;
+            b = B(:, idxLam);
+            b0 = FitInfo.Intercept(idxLam);
+
+            % Predict
+            logit = Xtst_pca * b + b0;
+            prob  = 1 ./ (1 + exp(-logit));
+            y_pred_prob(tst) = prob;
+            y_pred_lab(tst)  = double(prob >= 0.5);
+        end
+
+        % Metrics
+        [~,~,~,aucs(it)] = perfcurve(yv, y_pred_prob, 1);
+        TP = sum(y_pred_lab==1 & yv==1);
+        FN = sum(y_pred_lab==0 & yv==1);
+        TN = sum(y_pred_lab==0 & yv==0);
+        FP = sum(y_pred_lab==1 & yv==0);
+        senss(it) = TP / max(TP+FN, 1);
+        specs(it) = TN / max(TN+FP, 1);
+    end
+
+    fprintf('%-12s | %8.3f ± %.3f | %8.3f ± %.3f | %8.3f ± %.3f\n', ...
+        classifiers{ci}, mean(aucs), std(aucs), ...
+        mean(senss), std(senss), mean(specs), std(specs));
+end
+
+
 %% Exploratory Whole Brain Grey Matter Voxelwise Analysis
 
 conds = {'all_s_l','all_s_h','all_t_l','all_t_h'};   % Sound Low/High, Pressure Low/High
@@ -599,6 +1007,7 @@ f = plot_mpfc_treatmenteffects_sound(T);
 
 % Behavioral
 predict_treatment_changes(behavioral_longitudinal,d)
+
 % Neural
 predict_treatment_changes_neural(neural_longitudinal_sound, d)
 

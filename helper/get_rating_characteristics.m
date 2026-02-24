@@ -1,10 +1,16 @@
 function baseline_ratings = get_rating_characteristics(d)
 
-ids   = d.metadata.id;
-spon  = d.metadata.spon_pain_ratings;      % N x 8
-unpl  = d.metadata.acute_pain_ratings;     % N x 10
-thumb = d.metadata.acute_stim_is_thumb;    % N x 10 (0=sound, 1=thumb)
-inten = d.metadata.acute_stim_intensity;   % N x 10 (1=low, 2=high)
+% Subset to CBP patients at baseline only
+M = d.metadata;
+M = M(M.time == 1, :);
+isCBP = ismember(M.group, [1 2 3]);
+M = M(isCBP, :);
+
+ids   = M.id;
+spon  = M.spon_pain_ratings;      % N x 8
+unpl  = M.acute_pain_ratings;     % N x 10
+thumb = M.acute_stim_is_thumb;    % N x 10 (0=sound, 1=thumb)
+inten = M.acute_stim_intensity;   % N x 10 (1=low, 2=high)
 
 % Spontaneous pain metrics
 spon_mean = mean(spon, 2, 'omitnan');
@@ -89,61 +95,55 @@ R_rounded = round(R, 2);
 
 %% === HEATMAP (6 x 6) ===
 
-figure;
+figure('Color','w');
 
 % Use the rounded matrix here
 h = heatmap(allNames, allNames, R_rounded);
 
-h.Title  = 'Correlation Heatmap: Spontaneous & Stimulus Ratings';
-h.XLabel = 'Variables';
-h.YLabel = 'Variables';
+h.Title  = 'Correlation Heatmap: Spontaneous Pain vs Unpleasantness Ratings';
+h.XLabel = '';
+h.YLabel = '';
 
 h.FontSize = 12;
-h.GridVisible = 'off';
+h.GridVisible = 'on';
 h.ColorbarVisible = 'on';
 h.ColorLimits = [-1 1];
-
-% Alternative color palette
-try
-    h.Colormap = cividis;    % colorblind-friendly, perceptually uniform
-catch
-    h.Colormap = parula;
-end
-
-set(gcf,'Color','w');
-ax = gca;
-ax.XAxis.FontWeight = 'bold';
-ax.YAxis.FontWeight = 'bold';
+h.Colormap = parula;
 
 % === CUSTOM CELL LABELS WITH BOLD FOR SIGNIFICANT CORRELATIONS ===
 
-% Turn off built-in labels (we'll draw them manually)
+% Build label strings
+n = size(R_rounded, 1);
+labels = cell(n, n);
+for r = 1:n
+    for c = 1:n
+        val = R_rounded(r,c);
+        if isnan(val)
+            labels{r,c} = '';
+        else
+            labels{r,c} = sprintf('%.2f', val);
+        end
+    end
+end
+
+% Turn off default numeric labels, overlay custom text
 h.CellLabelColor = 'none';
 
 % Access the underlying axes of the heatmap
 sh = struct(h);
 ax = sh.Axes;
 
-n = size(R_rounded, 1);
-
 for r = 1:n
     for c = 1:n
-
-        val = R_rounded(r,c);
-        if isnan(val)
-            continue; % skip NaNs
-        end
+        if isempty(labels{r,c}), continue; end
 
         if P(r,c) < 0.05
-            txt = sprintf('%.2f*', val);
-            fw  = 'bold';    % significant = bold
+            fw = 'bold';
         else
-            txt = sprintf('%.2f', val);
-            fw  = 'normal';  % non-significant = normal
+            fw = 'normal';
         end
 
-        % Draw text in the heatmap axes
-        text(ax, c, r, txt, ...
+        text(ax, c, r, labels{r,c}, ...
             'HorizontalAlignment','center', ...
             'VerticalAlignment','middle', ...
             'FontWeight', fw, ...
@@ -151,10 +151,6 @@ for r = 1:n
             'Color','k');
     end
 end
-
-
-h.CellLabelFormat = '%s';
-h.CellLabelData   = labels;
 
 
 end 

@@ -5,7 +5,6 @@ function get_roiplots(lo)
 
 % Set up the figure
 hf = figure; % Open figure and keep handle
-hf = colordef(hf, 'white'); % Set color scheme
 hf.Color = 'w'; % Set background color of figure window
 %sgt = sgtitle("Unisensory Auditory");
 %sgt.FontSize = 38;
@@ -23,7 +22,6 @@ plot_figures(lo.roi, [9 10 11 12], 'Inferior Colliculus','roi', yLimit, 3, true)
 
 % Set up the figure
 hf = figure; % Open figure and keep handle
-hf = colordef(hf, 'white'); % Set color scheme
 hf.Color = 'w'; % Set background color of figure window
 %sgt = sgtitle("Unisensory Mechanical");
 %sgt.FontSize = 38;
@@ -40,7 +38,6 @@ plot_figures(lo.roi, [5 6 7 8], 'Right Primary Somatosensory Cortex','roi', yLim
 
 % Set up the figure
 hf = figure; % Open figure and keep handle
-hf = colordef(hf, 'white'); % Set color scheme
 hf.Color = 'w'; % Set background color of figure window
 %sgt = sgtitle("Sensory-Integrative");
 %sgt.FontSize = 38;
@@ -58,7 +55,6 @@ plot_figures(lo.roi, [9 10 11 12], 'Posterior Insula','roi', yLimit, 3, true);
 
 % Set up the figure
 hf = figure; % Open figure and keep handle
-hf = colordef(hf, 'white'); % Set color scheme
 hf.Color = 'w'; % Set background color of figure window
 %sgt = sgtitle("Self-Referential");
 %sgt.FontSize = 38;

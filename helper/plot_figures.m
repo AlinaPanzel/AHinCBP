@@ -1,6 +1,6 @@
 function plot_figures(regionData, subplotPosition, titleText, type, yLimit, nplot, hideYLabels)
 
-if strcmp(type, 'behvavioral')
+if strcmp(type, 'behavioral')
 
     csl = rmoutliers([regionData.G1.S1.acute_mean_sound_lo;regionData.G2.S1.acute_mean_sound_lo;regionData.G3.S1.acute_mean_sound_lo], 'mean'); 
     csh = rmoutliers([regionData.G1.S1.acute_mean_sound_hi;regionData.G2.S1.acute_mean_sound_hi;regionData.G3.S1.acute_mean_sound_hi], 'mean'); 
@@ -99,23 +99,17 @@ end
 % Plot data
 if strcmp(type, 'behavioral')
     disp('no subplot')
-hf = figure; % Open figure and keep handle
-hf = colordef(hf, 'white'); % Set color scheme
-hf.Color = 'w'; % Set background color of figure window
+hf = figure('Color','w'); % Open figure with white background
 % 
  else 
  subplot(1, nsubplot, subplotPosition)
  end
 
 %nexttile(subplotPosition)
-hc_col = [0 0 1]; 
-
-%[0.3255 0.6863 0.6941]cyan [0 0.4470 0.7410]blue [0 0.4470 0.7410];
-
+hc_col = [0 0 1];
 cbp_col = [0.8902 0.3490 0.1569];
 
-%[0.1216 0.2863 0.0] green  [0.0 0.0627 0.4353] [0.8627 0.5647 0.2627] yellow [0.9137 0.6824 0.3020][0.6350 0.0780 0.1840];
-
+% Pressure first (positions 1-2), then Sound (positions 4-5)
 al_goodplot(hpl, 1, 0.5, hc_col, 'left', [], std(hpl) / 1000);
 al_goodplot(cpl, 1, 0.5, cbp_col, 'right', [], std(cpl) / 1000);
 al_goodplot(hph, 2, 0.5, hc_col, 'left', [], std(hph) / 1000);
