@@ -800,42 +800,51 @@ fprintf('  r(%d) = %.2f, p = %.3g%s\n', sum(valid)-2, r, p, pstars(p));
 % LASSO-regularized logistic regression with PCA (95% variance) and SMOTE
 % 10-fold stratified cross-validation, 1000 iterations
 % Three classifiers: behavioral, neural, combined
+% (Reproduces run_classification.m / run_pca_classification.m)
 
 nIter  = 1000;
 nFolds = 10;
-rng(42);        % reproducibility
 
-% ---- Prepare feature matrices ----
+% ---- Prepare feature matrices using neural_baseline table ----
 
-% Behavioral features: unpleasantness ratings for all 4 conditions (wide)
-M = d.metadata;
-M = M(M.time == 1, :);                       % baseline only
-isCBP = ismember(M.group, [1 2 3]);
+% Neural features: low-sound ROI averages + MVPA pattern expressions
+% 15 features: 4 MVPA (FM_PAIN, FM_MSS, general, sound) + 11 ROIs
+% NO mechanical pattern (matches get_classification_data 'sound_lo')
+% Use neural_baseline (without outlier removal) for consistency with original
 
-X_beh = [M.acute_mean_sound_lo, M.acute_mean_sound_hi, ...
-         M.acute_mean_thumb_lo, M.acute_mean_thumb_hi];
-y_class = double(isCBP);                     % 1 = CBP, 0 = HC
-
-% Neural features: all ROI averages + MVPA pattern expressions for low sound
-% Pivot neural_baseline_clean to wide (one row per subject, low sound only)
-nb = neural_baseline_clean(neural_baseline_clean.modality=="Sound" & ...
-     neural_baseline_clean.intensity=="Low", :);
+nb = neural_baseline(neural_baseline.modality=="Sound" & ...
+     neural_baseline.intensity=="Low" & ...
+     neural_baseline.measure ~= "mechanical", :);   % exclude mechanical
 nb_wide = unstack(nb(:,{'subID','measure','value'}), 'value', 'measure');
 nb_wide = sortrows(nb_wide, 'subID');
 
-% Align neural features with behavioral features by subject ID
-[~, ia, ib] = intersect(M.id, nb_wide.subID);
-X_beh_aligned  = X_beh(ia, :);
-X_neur_aligned = table2array(nb_wide(ib, 2:end));    % drop subID column
-y_aligned      = y_class(ia);
+% Behavioral features: unpleasantness ratings for all 4 conditions
+M_class = d.metadata;
+M_class = M_class(M_class.time == 1, :);        % baseline only
+M_class = sortrows(M_class, 'id');
 
-% Combined
-X_comb = [X_beh_aligned, X_neur_aligned];
+% Align neural and behavioral by subject ID
+[~, ia, ib] = intersect(M_class.id, nb_wide.subID);
+M_class = M_class(ia, :);
+nb_wide = nb_wide(ib, :);
+
+X_beh  = [M_class.acute_mean_thumb_lo, M_class.acute_mean_thumb_hi, ...
+          M_class.acute_mean_sound_lo, M_class.acute_mean_sound_hi];
+X_neur = table2array(nb_wide(:, 2:end));         % drop subID column
+X_comb = [X_beh, X_neur];
+
+% Labels: CBP = 1, HC = 0
+isCBP   = ismember(M_class.group, [1 2 3]);
+y_class = double(isCBP);
+
+fprintf('\nClassification features: %d behavioral, %d neural, %d combined\n', ...
+    size(X_beh,2), size(X_neur,2), size(X_comb,2));
+fprintf('Subjects: %d CBP, %d HC\n', sum(y_class==1), sum(y_class==0));
 
 % ---- Run classifiers ----
 
 classifiers = {'Behavioral','Neural','Combined'};
-X_all = {X_beh_aligned, X_neur_aligned, X_comb};
+X_all = {X_beh, X_neur, X_comb};
 
 fprintf('\n==== CLASSIFICATION: CBP vs. CONTROLS ====\n');
 fprintf('%-12s | %8s ± %5s | %8s ± %5s | %8s ± %5s\n', ...
@@ -843,82 +852,69 @@ fprintf('%-12s | %8s ± %5s | %8s ± %5s | %8s ± %5s\n', ...
 fprintf('%s\n', repmat('-',1,72));
 
 for ci = 1:numel(classifiers)
-    Xraw = X_all{ci};
-    yraw = y_aligned;
+    x = X_all{ci};
+    y = y_class;
 
-    % Drop rows with any NaN
-    valid = all(~isnan(Xraw),2) & ~isnan(yraw);
-    Xv = Xraw(valid,:);
-    yv = yraw(valid);
+    meanAUC  = zeros(nIter, 1);
+    meanSens = zeros(nIter, 1);
+    meanSpec = zeros(nIter, 1);
 
-    aucs  = nan(nIter,1);
-    senss = nan(nIter,1);
-    specs = nan(nIter,1);
+    for iteration = 1:nIter
+        % PCA on full dataset (before CV split, matching original)
+        [coeff, score, ~, ~, explained] = pca(x);
 
-    for it = 1:nIter
-        cv = cvpartition(yv, 'KFold', nFolds, 'Stratify', true);
+        % Select components that explain 95% of the variance
+        explainedVariance = 0;
+        numComponents = 0;
+        while explainedVariance < 95
+            numComponents = numComponents + 1;
+            explainedVariance = sum(explained(1:numComponents));
+        end
+        x_pca = score(:, 1:numComponents);
 
-        y_pred_prob = nan(size(yv));
-        y_pred_lab  = nan(size(yv));
+        % Stratified 10-fold cross-validation
+        cv = cvpartition(y, 'KFold', nFolds, 'Stratify', true);
+        sensitivity = zeros(nFolds, 1);
+        specificity = zeros(nFolds, 1);
+        AUC = zeros(nFolds, 1);
 
-        for f = 1:nFolds
-            trn = training(cv, f);
-            tst = test(cv, f);
+        for i = 1:nFolds
+            trainIdx = training(cv, i);
+            X_train = x_pca(trainIdx, :);
+            y_train = y(trainIdx);
+            testIdx = test(cv, i);
+            X_test = x_pca(testIdx, :);
+            y_test = y(testIdx);
 
-            Xtrn = Xv(trn,:);  ytrn = yv(trn);
-            Xtst = Xv(tst,:);
+            % Handle class imbalance using SMOTE
+            [X_train_balanced, y_train_balanced, ~, ~] = smote(X_train, [], 'Class', y_train);
 
-            % SMOTE: oversample minority class in training set
-            nMin = sum(ytrn==0);  nMaj = sum(ytrn==1);
-            if nMin < nMaj
-                idxMin = find(ytrn==0);
-                nSyn = nMaj - nMin;
-                synIdx = idxMin(randi(nMin, nSyn, 1));
-                % add small jitter to synthetic samples
-                noise = 0.05 * randn(nSyn, size(Xtrn,2)) .* std(Xtrn(idxMin,:),[],1);
-                Xtrn = [Xtrn; Xtrn(synIdx,:) + noise];
-                ytrn = [ytrn; zeros(nSyn,1)];
-            end
+            % Fit regularized logistic regression using lassoglm
+            [B, FitInfo] = lassoglm(X_train_balanced, y_train_balanced, 'binomial', 'CV', 10);
+            idxLambdaMinDeviance = FitInfo.IndexMinDeviance;
+            B0 = FitInfo.Intercept(idxLambdaMinDeviance);
+            coef = [B0; B(:, idxLambdaMinDeviance)];
 
-            % PCA: retain 95% variance
-            [coeff, score, ~, ~, explained] = pca(Xtrn, 'Centered',true);
-            cumVar = cumsum(explained);
-            nComp  = find(cumVar >= 95, 1, 'first');
-            if isempty(nComp), nComp = size(score,2); end
+            % Predict class probabilities for test set
+            X_test_intercept = [ones(size(X_test,1),1) X_test];
+            scores = glmval(coef, X_test_intercept, 'logit', 'constant', 'off');
 
-            Xtrn_pca = score(:, 1:nComp);
-            mu = mean(Xtrn,1);
-            Xtst_pca = (Xtst - mu) * coeff(:, 1:nComp);
-
-            % LASSO logistic regression
-            [B, FitInfo] = lassoglm(Xtrn_pca, ytrn, 'binomial', ...
-                'Alpha',1, 'NumLambda',50, 'CV',5);
-
-            % Pick lambda with minimum deviance
-            idxLam = FitInfo.IndexMinDeviance;
-            b = B(:, idxLam);
-            b0 = FitInfo.Intercept(idxLam);
-
-            % Predict
-            logit = Xtst_pca * b + b0;
-            prob  = 1 ./ (1 + exp(-logit));
-            y_pred_prob(tst) = prob;
-            y_pred_lab(tst)  = double(prob >= 0.5);
+            % Calculate performance metrics using optimal ROC threshold
+            [Xroc, Yroc, ~, AUC(i)] = perfcurve(y_test, scores, 1);
+            [~, idx] = max(Yroc - Xroc);
+            sensitivity(i) = Yroc(idx);
+            specificity(i) = 1 - Xroc(idx);
         end
 
-        % Metrics
-        [~,~,~,aucs(it)] = perfcurve(yv, y_pred_prob, 1);
-        TP = sum(y_pred_lab==1 & yv==1);
-        FN = sum(y_pred_lab==0 & yv==1);
-        TN = sum(y_pred_lab==0 & yv==0);
-        FP = sum(y_pred_lab==1 & yv==0);
-        senss(it) = TP / max(TP+FN, 1);
-        specs(it) = TN / max(TN+FP, 1);
+        % Store mean performance metrics for this iteration
+        meanAUC(iteration)  = mean(AUC);
+        meanSens(iteration) = mean(sensitivity);
+        meanSpec(iteration) = mean(specificity);
     end
 
     fprintf('%-12s | %8.3f ± %.3f | %8.3f ± %.3f | %8.3f ± %.3f\n', ...
-        classifiers{ci}, mean(aucs), std(aucs), ...
-        mean(senss), std(senss), mean(specs), std(specs));
+        classifiers{ci}, mean(meanAUC), std(meanAUC), ...
+        mean(meanSens), std(meanSens), mean(meanSpec), std(meanSpec));
 end
 
 
