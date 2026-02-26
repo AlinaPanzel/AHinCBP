@@ -5,7 +5,7 @@
 
 **Authors:** Alina E. C. Panzel, Christian Büchel, Andrew Leroux, Tor D. Wager, Yoni K. Ashar
 
-**Language:** MATLAB | **Last updated:** February 2026
+**Language:** MATLAB, R | **Last updated:** February 2026
 
 ---
 
@@ -20,6 +20,7 @@ Analyses include:
 - **Univariate fMRI:** Region-of-interest (ROI) analyses across primary sensory, sensory-integrative (insula), and default mode network regions
 - **Multivariate fMRI:** Pattern expression analyses using a priori negative affect patterns ([Čeko et al., 2022](https://doi.org/10.1038/s41593-022-01082-w)) and fibromyalgia-derived patterns ([López-Solà et al., 2017](https://doi.org/10.1097/j.pain.0000000000000707))
 - **Longitudinal:** Treatment effects of PRT vs. placebo and usual care on auditory unpleasantness and neural responses
+- **Longitudinal behavioral (R):** Gaussian Location Scale mixed models, sensitivity analyses, and quantile regression for auditory pain responses (Andrew Leroux)
 - **Exploratory:** Whole-brain voxel-wise group comparisons and brain-behavior correlations
 
 ## Repository Structure
@@ -47,6 +48,19 @@ AHinCBP/
 │   ├── plot_mpfc_treatmenteffects_sound.m            #   mPFC longitudinal plots
 │   ├── plot_auditory_treatmenteffects_collapsed.m    #   Treatment effects (collapsed)
 │   └── plot_auditory_treatmenteffects_byIntensity.m  #   Treatment effects (by intensity)
+│
+├── scripts/                     # R analysis scripts (Andrew Leroux)
+│   └── auditory_sensitivity_first_manuscript/
+│       └── PRT_auditory_sensitivity_analyses_all_data.R  # GAM/GAULSS models
+│
+├── reports/                     # R Markdown reports (Andrew Leroux)
+│   └── auditory_sensitivity_first_manuscript/
+│       ├── full_data_analyses/
+│       │   ├── PRT_noise_analyses_full_data.Rmd   # Full dataset analysis
+│       │   └── PRT_noise_analyses_full_data.html   # Compiled report
+│       └── initial_analyses/
+│           ├── PRT_noise_analyses.Rmd              # Completers-only analysis
+│           └── PRT_noise_analyses.html              # Compiled report
 │
 ├── data/                        # Preprocessed data tables (.mat)
 │   ├── behavioral_baseline.mat
@@ -103,6 +117,17 @@ lme = fitlme(Tk, 'value ~ group*timepoint + intensity + (1 + timepoint | subID)'
 ```
 Tests group (PRT, placebo, usual care) x timepoint (pre, post) interactions for behavioral ratings and each neural measure, with FDR correction (Benjamini-Hochberg).
 
+### Step 6: Longitudinal Behavioral Analysis (R — Andrew Leroux)
+
+Located in `scripts/` and `reports/`, these R-based analyses model PRT treatment effects on auditory pain responses using:
+
+- **Gaussian Location Scale (GAULSS) mixed models** (`mgcv`): Joint modeling of the mean and variance of pain ratings, with subject-specific random intercepts/slopes and penalized regression splines for exposure order
+- **Sensitivity analyses**: Simplified variance model, full dataset including outliers
+- **Quantile additive mixed models** (`qgam`): Median regression as a distribution-free sensitivity check
+- **Hypothesis testing**: Custom contrast matrices (via `multcomp`) comparing PRT vs. placebo and PRT vs. usual care for low and high intensity exposures
+
+Reports are available as compiled HTML in `reports/auditory_sensitivity_first_manuscript/`.
+
 ## Key Findings
 
 ### Cross-Sectional (CBP vs. Controls)
@@ -142,9 +167,13 @@ ROIs were selected a priori to test three levels of the sensory processing hiera
 
 ### Prerequisites
 
+**MATLAB pipeline:**
 - **MATLAB R2021b** or later
 - **Statistics and Machine Learning Toolbox**
 - **Optimization Toolbox**
+
+**R analyses (Andrew Leroux):**
+- **R 4.0+** with packages: `mgcv`, `tidyverse`, `lme4`, `ggplot2`, `qgam`, `multcomp`, `nlme`, `here`
 
 ### External Dependencies
 
@@ -191,6 +220,7 @@ ROIs were selected a priori to test three levels of the sensory processing hiera
 | Behavioral baseline | `Rating ~ Age + Gender + Intensity * Group + (1\|ID)` | Subject intercept |
 | Neural baseline (ROI/MVPA) | `value ~ group + intensity + (1\|subID)` | Subject intercept |
 | Longitudinal | `value ~ group * timepoint + intensity + (1 + timepoint\|subID)` | Subject intercept + slope |
+| Longitudinal behavioral (R) | GAULSS: `Rating ~ group*time*intensity + s(record) + ...` | Subject + subject-time intercepts & slopes; heterogeneous variance |
 | Whole-brain | Robust regression with weighted group contrast | N/A (voxel-wise) |
 
 - Degrees of freedom: Satterthwaite approximation
@@ -214,7 +244,7 @@ For questions or issues, please open a [GitHub issue](https://github.com/AlinaPa
 
 ## Acknowledgements
 
-This work builds on the [CANlab toolbox](https://canlab.github.io/) and source code contributions by Yoni Ashar. Supported by NIH grants R01 DA035484 (NIDA), R01 MH076136 (NIMH), and TL1-TR-002386 (NCATS).
+This work builds on the [CANlab toolbox](https://canlab.github.io/) and source code contributions by Yoni Ashar and Andrew Leroux. Supported by NIH grants R01 DA035484 (NIDA), R01 MH076136 (NIMH), and TL1-TR-002386 (NCATS).
 
 ## License
 
